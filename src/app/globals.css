@@ -1,0 +1,551 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   DEXTube design tokens
+   --------------------------------------------------------------------------
+   All colour, spacing, radius and elevation decisions live here. Components
+   never hard-code colours; they use the semantic utilities generated from
+   these tokens (bg-surface, text-muted, border-line, …) which flip
+   automatically between the light and dark themes.
+
+   The DEXTube identity is intentionally distinct from other platforms:
+   a violet "dex" primary with a warm coral accent, drawn from the DEX mark.
+   ========================================================================== */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --dt-brand: #6c4cf1;
+  --dt-brand-hover: #5a3ad9;
+  --dt-brand-soft: #efebff;
+  --dt-brand-contrast: #ffffff;
+  --dt-accent: #ff5c7a;
+  --dt-accent-soft: #ffe8ed;
+
+  /* Surfaces */
+  --dt-canvas: #f6f6f9;
+  --dt-surface: #ffffff;
+  --dt-surface-2: #f0f0f5;
+  --dt-surface-3: #e6e6ee;
+  --dt-overlay: rgba(14, 14, 24, 0.45);
+
+  /* Text */
+  --dt-fg: #14141c;
+  --dt-fg-muted: #565667;
+  --dt-fg-subtle: #83839a;
+
+  /* Lines */
+  --dt-line: #e2e2ea;
+  --dt-line-strong: #c9c9d6;
+
+  /* Status */
+  --dt-danger: #d92d20;
+  --dt-danger-soft: #fdecea;
+  --dt-success: #12805c;
+  --dt-success-soft: #e3f6ee;
+  --dt-warning: #b25e09;
+  --dt-warning-soft: #fdf1e0;
+  --dt-info-soft: #e8f0fe;
+
+  /* Elevation */
+  --dt-shadow-sm: 0 1px 2px rgba(16, 16, 32, 0.06), 0 1px 3px rgba(16, 16, 32, 0.04);
+  --dt-shadow-md: 0 4px 12px rgba(16, 16, 32, 0.08);
+  --dt-shadow-lg: 0 12px 32px rgba(16, 16, 32, 0.14);
+
+  /* Geometry */
+  --dt-radius-sm: 6px;
+  --dt-radius-md: 10px;
+  --dt-radius-lg: 16px;
+  --dt-radius-xl: 24px;
+  --dt-header-h: 56px;
+  --dt-sidebar-w: 240px;
+  --dt-sidebar-w-rail: 76px;
+
+  /* Motion */
+  --dt-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --dt-brand: #8b73ff;
+  --dt-brand-hover: #9d89ff;
+  --dt-brand-soft: #241d47;
+  --dt-brand-contrast: #0f0b1f;
+  --dt-accent: #ff7d97;
+  --dt-accent-soft: #3a1c26;
+
+  --dt-canvas: #0d0d13;
+  --dt-surface: #16161f;
+  --dt-surface-2: #1e1e2a;
+  --dt-surface-3: #2a2a38;
+  --dt-overlay: rgba(0, 0, 0, 0.65);
+
+  --dt-fg: #f2f2f7;
+  --dt-fg-muted: #a9a9bd;
+  --dt-fg-subtle: #7c7c93;
+
+  --dt-line: #2a2a38;
+  --dt-line-strong: #3d3d4f;
+
+  --dt-danger: #ff6b6b;
+  --dt-danger-soft: #3a1c1c;
+  --dt-success: #4ade80;
+  --dt-success-soft: #14301f;
+  --dt-warning: #fbbf24;
+  --dt-warning-soft: #33280e;
+  --dt-info-soft: #17233d;
+
+  --dt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --dt-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+  --dt-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+@theme inline {
+  --color-canvas: var(--dt-canvas);
+  --color-surface: var(--dt-surface);
+  --color-surface-2: var(--dt-surface-2);
+  --color-surface-3: var(--dt-surface-3);
+  --color-overlay: var(--dt-overlay);
+
+  --color-fg: var(--dt-fg);
+  --color-muted: var(--dt-fg-muted);
+  --color-subtle: var(--dt-fg-subtle);
+
+  --color-line: var(--dt-line);
+  --color-line-strong: var(--dt-line-strong);
+
+  --color-brand: var(--dt-brand);
+  --color-brand-hover: var(--dt-brand-hover);
+  --color-brand-soft: var(--dt-brand-soft);
+  --color-brand-contrast: var(--dt-brand-contrast);
+  --color-accent: var(--dt-accent);
+  --color-accent-soft: var(--dt-accent-soft);
+
+  --color-danger: var(--dt-danger);
+  --color-danger-soft: var(--dt-danger-soft);
+  --color-success: var(--dt-success);
+  --color-success-soft: var(--dt-success-soft);
+  --color-warning: var(--dt-warning);
+  --color-warning-soft: var(--dt-warning-soft);
+  --color-info-soft: var(--dt-info-soft);
+
+  --radius-dt-sm: var(--dt-radius-sm);
+  --radius-dt-md: var(--dt-radius-md);
+  --radius-dt-lg: var(--dt-radius-lg);
+  --radius-dt-xl: var(--dt-radius-xl);
+
+  --shadow-dt-sm: var(--dt-shadow-sm);
+  --shadow-dt-md: var(--dt-shadow-md);
+  --shadow-dt-lg: var(--dt-shadow-lg);
+
+  --font-sans: "Inter", "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--dt-canvas);
+  color: var(--dt-fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+video,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* Visible keyboard focus everywhere, but not on mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--dt-brand);
+  outline-offset: 2px;
+  border-radius: var(--dt-radius-sm);
+}
+
+::selection {
+  background: var(--dt-brand);
+  color: var(--dt-brand-contrast);
+}
+
+/* Skip link for keyboard/screen-reader users. */
+.dt-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--dt-brand);
+  color: var(--dt-brand-contrast);
+  border-radius: 0 0 var(--dt-radius-md) 0;
+}
+.dt-skip-link:focus {
+  left: 0;
+}
+
+.dt-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================================================
+   Scrollbars (subtle, matches theme)
+   ========================================================================== */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--dt-line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--dt-line-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--dt-fg-subtle);
+  background-clip: content-box;
+}
+
+/* ==========================================================================
+   Reusable component classes
+   ========================================================================== */
+
+.dt-card {
+  background: var(--dt-surface);
+  border: 1px solid var(--dt-line);
+  border-radius: var(--dt-radius-lg);
+}
+
+.dt-input {
+  width: 100%;
+  background: var(--dt-surface);
+  color: var(--dt-fg);
+  border: 1px solid var(--dt-line-strong);
+  border-radius: var(--dt-radius-md);
+  padding: 9px 12px;
+  font-size: 14px;
+  transition: border-color 0.15s var(--dt-ease), box-shadow 0.15s var(--dt-ease);
+}
+.dt-input::placeholder {
+  color: var(--dt-fg-subtle);
+}
+.dt-input:hover {
+  border-color: var(--dt-fg-subtle);
+}
+.dt-input:focus {
+  outline: none;
+  border-color: var(--dt-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dt-brand) 22%, transparent);
+}
+.dt-input[aria-invalid="true"] {
+  border-color: var(--dt-danger);
+}
+
+.dt-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--dt-fg-muted);
+}
+
+.dt-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--dt-surface-2) 25%,
+    var(--dt-surface-3) 37%,
+    var(--dt-surface-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: dt-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--dt-radius-md);
+}
+
+@keyframes dt-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.dt-spin {
+  animation: dt-rotate 0.8s linear infinite;
+}
+@keyframes dt-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Player / Shorts helpers */
+.dt-no-scrollbar {
+  scrollbar-width: none;
+}
+.dt-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.dt-aspect-video {
+  aspect-ratio: 16 / 9;
+}
+.dt-aspect-short {
+  aspect-ratio: 9 / 16;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.dt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s var(--dt-ease), border-color 0.15s var(--dt-ease),
+    color 0.15s var(--dt-ease), opacity 0.15s var(--dt-ease);
+}
+.dt-btn:disabled,
+.dt-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dt-btn-primary {
+  background: var(--dt-brand);
+  color: var(--dt-brand-contrast);
+}
+.dt-btn-primary:hover:not(:disabled) {
+  background: var(--dt-brand-hover);
+}
+
+.dt-btn-secondary {
+  background: var(--dt-surface-2);
+  color: var(--dt-fg);
+}
+.dt-btn-secondary:hover:not(:disabled) {
+  background: var(--dt-surface-3);
+}
+
+.dt-btn-outline {
+  background: transparent;
+  color: var(--dt-fg);
+  border-color: var(--dt-line-strong);
+}
+.dt-btn-outline:hover:not(:disabled) {
+  background: var(--dt-surface-2);
+}
+
+.dt-btn-ghost {
+  background: transparent;
+  color: var(--dt-fg);
+}
+.dt-btn-ghost:hover:not(:disabled) {
+  background: var(--dt-surface-2);
+}
+
+.dt-btn-danger {
+  background: var(--dt-danger);
+  color: #fff;
+}
+.dt-btn-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* Circular icon button (header controls, player controls) */
+.dt-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dt-fg);
+  cursor: pointer;
+  transition: background-color 0.15s var(--dt-ease);
+}
+.dt-icon-btn:hover {
+  background: var(--dt-surface-2);
+}
+
+/* ==========================================================================
+   Menus, badges, misc
+   ========================================================================== */
+
+.dt-menu {
+  min-width: 220px;
+  padding: 6px;
+  background: var(--dt-surface);
+  border: 1px solid var(--dt-line);
+  border-radius: var(--dt-radius-md);
+  box-shadow: var(--dt-shadow-lg);
+}
+.dt-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--dt-radius-sm);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--dt-fg);
+}
+.dt-menu-item:hover {
+  background: var(--dt-surface-2);
+}
+.dt-menu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--dt-line);
+}
+
+.dt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--dt-surface-2);
+  color: var(--dt-fg-muted);
+}
+.dt-badge-brand {
+  background: var(--dt-brand-soft);
+  color: var(--dt-brand);
+}
+.dt-badge-danger {
+  background: var(--dt-danger-soft);
+  color: var(--dt-danger);
+}
+.dt-badge-success {
+  background: var(--dt-success-soft);
+  color: var(--dt-success);
+}
+.dt-badge-warning {
+  background: var(--dt-warning-soft);
+  color: var(--dt-warning);
+}
+
+.dt-alert {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--dt-radius-md);
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+.dt-alert-error {
+  background: var(--dt-danger-soft);
+  border-color: color-mix(in srgb, var(--dt-danger) 35%, transparent);
+  color: var(--dt-danger);
+}
+.dt-alert-success {
+  background: var(--dt-success-soft);
+  border-color: color-mix(in srgb, var(--dt-success) 35%, transparent);
+  color: var(--dt-success);
+}
+.dt-alert-info {
+  background: var(--dt-info-soft);
+  border-color: color-mix(in srgb, var(--dt-brand) 25%, transparent);
+  color: var(--dt-fg);
+}
+
+.dt-link {
+  color: var(--dt-brand);
+  font-weight: 600;
+}
+.dt-link:hover {
+  text-decoration: underline;
+}
+
+/* Hover-reveal overlay used by video cards and Shorts */
+.dt-hover-actions {
+  opacity: 0;
+  transition: opacity 0.15s var(--dt-ease);
+}
+.dt-card-hover:hover .dt-hover-actions,
+.dt-card-hover:focus-within .dt-hover-actions {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Accessibility / reduced motion & data saving
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .dt-skeleton {
+    animation: none;
+  }
+}
+
+/* Users who opt out of autoplay/background media (DEXTube sets this attribute
+   from the settings > playback "reduce data usage" switch). */
+[data-reduce-motion="true"] .dt-autoplay-media {
+  display: none;
+}

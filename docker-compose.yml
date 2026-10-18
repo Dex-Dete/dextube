@@ -1,0 +1,51 @@
+# DEXTube development services
+#
+#   docker compose up -d          # start PostgreSQL (+ optional Redis profile)
+#   docker compose --profile cache up -d
+#
+# Secrets are read from `.env` (never hard-coded here). Copy `.env.example`
+# to `.env` first and set POSTGRES_PASSWORD.
+#
+# NOTE: host port 5433 is used so DEXTube does not collide with a native
+# PostgreSQL on 5432.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dextube-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dextube}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-dextube}
+      # Keep the instance small and predictable on development laptops.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      - postgres
+      - -c
+      - max_connections=50
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=8MB
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - dextube_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dextube} -d ${POSTGRES_DB:-dextube}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Optional cache / future background broker. DEXTube runs without it.
+  redis:
+    image: redis:7-alpine
+    container_name: dextube-redis
+    profiles: ["cache"]
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  dextube_pgdata:

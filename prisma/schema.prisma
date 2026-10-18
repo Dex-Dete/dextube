@@ -1,0 +1,640 @@
+// DEXTube database schema (PostgreSQL + Prisma)
+// ---------------------------------------------------------------------------
+// Conventions
+//  * All ids are cuids (sortable, URL-safe, non-sequential => no enumeration).
+//  * User-supplied text uses @db.Text where length is unbounded.
+//  * Denormalised counters (viewCount, likeCount, subscriberCount, ...) are
+//    maintained inside transactions by the service layer so feeds stay fast.
+//  * Every privacy-sensitive model has explicit server-side checks in
+//    src/server/services/*.ts — the schema alone never grants access.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum Visibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+
+enum VideoStatus {
+  DRAFT
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum AssetKind {
+  ORIGINAL
+  PROGRESSIVE
+  HLS_MANIFEST
+  HLS_SEGMENT
+  THUMBNAIL
+  CAPTION
+}
+
+enum UploadStatus {
+  INITIATED
+  UPLOADING
+  COMPLETE
+  FAILED
+  ABORTED
+}
+
+enum TokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum ReactionValue {
+  LIKE
+  DISLIKE
+}
+
+enum NotificationType {
+  NEW_VIDEO
+  COMMENT_REPLY
+  COMMENT_LIKE
+  VIDEO_LIKE
+  NEW_SUBSCRIBER
+  SYSTEM
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+  ACTIONED
+}
+
+enum ListVisibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+
+// ---------------------------------------------------------------------------
+// Accounts & sessions
+// ---------------------------------------------------------------------------
+
+model User {
+  id             String    @id @default(cuid())
+  username       String    @unique
+  displayName    String
+  email          String    @unique
+  emailNormalized String   @unique
+  passwordHash   String
+  role           UserRole  @default(USER)
+  emailVerifiedAt DateTime?
+  avatarKey      String?
+  bio            String?   @db.Text
+  /// Session epoch: bumping this invalidates every existing session token.
+  sessionEpoch   Int       @default(0)
+  /// Privacy: when false, watch history is not recorded/persisted.
+  saveWatchHistory Boolean @default(true)
+  /// Privacy: when false, other users cannot see what this user liked.
+  showLikesPublicly Boolean @default(true)
+  isSuspended    Boolean   @default(false)
+  suspendedReason String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sessions      Session[]
+  tokens        Token[]
+  channel       Channel?
+  comments      Comment[]
+  commentLikes  CommentLike[]
+  reactions     VideoReaction[]
+  subscriptions Subscription[]
+  watchProgress WatchProgress[]
+  history       WatchHistory[]
+  notifications Notification[] @relation("NotificationRecipient")
+  actorNotifications Notification[] @relation("NotificationActor")
+  interests     UserInterest[]
+  uploads       Upload[]
+  reports       ContentReport[]
+  commentReports CommentReport[]
+
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  /// SHA-256 hash of the opaque session token. The raw token only ever lives
+  /// in the user's httpOnly cookie.
+  tokenHash  String   @unique
+  epoch      Int      @default(0)
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Token {
+  id        String       @id @default(cuid())
+  userId    String
+  purpose   TokenPurpose
+  tokenHash String       @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("tokens")
+}
+
+model UserInterest {
+  id     String @id @default(cuid())
+  userId String
+  tag    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tag])
+  @@map("user_interests")
+}
+
+// ---------------------------------------------------------------------------
+// Channels
+// ---------------------------------------------------------------------------
+
+model Channel {
+  id              String   @id @default(cuid())
+  ownerId         String   @unique
+  handle          String   @unique
+  name            String
+  description     String?  @db.Text
+  avatarKey       String?
+  bannerKey       String?
+  /// Free-form JSON for channel layout customisation (sections order).
+  layout          Json?
+  subscriberCount Int      @default(0)
+  videoCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  videos        Video[]
+  playlists     Playlist[]
+  subscriptions Subscription[]
+  dailyStats    ChannelDailyStat[]
+
+  @@index([subscriberCount])
+  // Trigram indexes for fast ILIKE '%term%' search. Declared here (with the
+  // original names) so `prisma migrate dev` does not treat them as drift and
+  // drop them — they were previously created only by raw SQL.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "channels_name_trgm_idx")
+  @@index([handle(ops: raw("gin_trgm_ops"))], type: Gin, map: "channels_handle_trgm_idx")
+  @@map("channels")
+}
+
+model Subscription {
+  id           String   @id @default(cuid())
+  subscriberId String
+  channelId    String
+  /// Notification preference for this subscription.
+  notifyLevel  String   @default("all") // all | personalized | none
+  createdAt    DateTime @default(now())
+
+  subscriber User    @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  channel    Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberId, channelId])
+  @@index([channelId])
+  @@map("subscriptions")
+}
+
+// ---------------------------------------------------------------------------
+// Uploads & media
+// ---------------------------------------------------------------------------
+
+model Upload {
+  id            String       @id @default(cuid())
+  userId        String
+  channelId     String
+  filename      String
+  sizeBytes     BigInt
+  mimeType      String
+  receivedBytes BigInt       @default(0)
+  status        UploadStatus @default(INITIATED)
+  /// Storage key of the temporary (unpublished) upload.
+  tempKey       String
+  videoId       String?      @unique
+  error         String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([createdAt])
+  @@map("uploads")
+}
+
+model Video {
+  id          String      @id @default(cuid())
+  channelId   String
+  uploaderId  String
+  title       String
+  description String      @default("") @db.Text
+  visibility  Visibility  @default(PRIVATE)
+  status      VideoStatus @default(DRAFT)
+  isShort     Boolean     @default(false)
+  durationSec Float       @default(0)
+  width       Int?
+  height      Int?
+  category    String?
+  tags        String[]    @default([])
+  language    String?
+  thumbnailKey     String?
+  posterKey        String?
+  playbackKey      String?
+  hlsKey           String?
+  originalKey      String?
+  sourceFilename   String?
+  sizeBytes        BigInt?
+  mimeType         String?
+  allowComments    Boolean   @default(true)
+  madeForKids      Boolean   @default(false)
+  viewCount        Int       @default(0)
+  likeCount        Int       @default(0)
+  dislikeCount     Int       @default(0)
+  commentCount     Int       @default(0)
+  processingError  String?   @db.Text
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  channel       Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  assets        VideoAsset[]
+  comments      Comment[]
+  reactions     VideoReaction[]
+  playlistItems PlaylistItem[]
+  progress      WatchProgress[]
+  history       WatchHistory[]
+  views         View[]
+  dailyStats    VideoDailyStat[]
+  reports       ContentReport[]
+
+  @@index([status, visibility, publishedAt])
+  @@index([channelId, status, publishedAt])
+  @@index([isShort, status, visibility, publishedAt])
+  @@index([category])
+  @@index([viewCount])
+  @@index([deletedAt])
+  // Trigram/GIN indexes for search (see note on Channel).
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "videos_title_trgm_idx")
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin, map: "videos_description_trgm_idx")
+  @@index([tags], type: Gin, map: "videos_tags_gin_idx")
+  @@map("videos")
+}
+
+model VideoAsset {
+  id           String    @id @default(cuid())
+  videoId      String
+  kind         AssetKind
+  label        String?
+  storageKey   String
+  mimeType     String
+  width        Int?
+  height       Int?
+  bitrateKbps  Int?
+  sizeBytes    BigInt?
+  createdAt    DateTime  @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, kind])
+  @@map("video_assets")
+}
+
+// ---------------------------------------------------------------------------
+// Engagement
+// ---------------------------------------------------------------------------
+
+model VideoReaction {
+  id        String        @id @default(cuid())
+  videoId   String
+  userId    String
+  value     ReactionValue
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, userId])
+  @@index([userId])
+  @@map("video_reactions")
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  videoId   String
+  userId    String
+  parentId  String?
+  body      String    @db.Text
+  likeCount Int       @default(0)
+  replyCount Int      @default(0)
+  isPinned  Boolean   @default(false)
+  isHidden  Boolean   @default(false)
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  video      Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent     Comment?        @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[]       @relation("CommentReplies")
+  likes      CommentLike[]
+  reports    CommentReport[]
+
+  @@index([videoId, parentId, createdAt])
+  @@index([videoId, isPinned, createdAt])
+  @@index([userId])
+  @@map("comments")
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@map("comment_likes")
+}
+
+model View {
+  id             String   @id @default(cuid())
+  videoId        String
+  userId         String?
+  /// Anonymous viewers are deduplicated with a salted, rotating hash of
+  /// (ip + user agent + day) — no raw IP is ever stored here.
+  viewerHash     String
+  watchedSeconds Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
+  // Anonymous view de-duplication lookup: (videoId, viewerHash, createdAt DESC).
+  @@index([videoId, viewerHash, createdAt(sort: Desc)], map: "views_dedupe_idx")
+  @@map("views")
+}
+
+model WatchProgress {
+  id            String   @id @default(cuid())
+  userId        String
+  videoId       String
+  positionSec   Float    @default(0)
+  durationSec   Float    @default(0)
+  completed     Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, updatedAt])
+  @@map("watch_progress")
+}
+
+model WatchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  watchedAt DateTime @default(now())
+  seconds   Int      @default(0)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, watchedAt])
+  @@index([videoId])
+  @@map("watch_history")
+}
+
+// ---------------------------------------------------------------------------
+// Library: playlists, watch later
+// ---------------------------------------------------------------------------
+
+model Playlist {
+  id          String         @id @default(cuid())
+  channelId   String
+  title       String
+  description String?        @db.Text
+  visibility  ListVisibility @default(PRIVATE)
+  /// System playlists (Watch later, Liked videos) cannot be deleted/renamed.
+  isSystem    Boolean        @default(false)
+  /// System kind: `watch_later` | `liked_videos`. Unique *per channel*, so every
+  /// user has their own Watch later / Liked videos list.
+  systemKind  String?
+  itemCount   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  channel Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  items   PlaylistItem[]
+
+  @@unique([channelId, systemKind])
+  @@index([channelId, createdAt])
+  // Trigram index for playlist title search (see note on Channel).
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "playlists_title_trgm_idx")
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id         String   @id @default(cuid())
+  playlistId String
+  videoId    String
+  position   Int      @default(0)
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, videoId])
+  @@index([playlistId, position])
+  @@map("playlist_items")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  body        String?
+  url         String
+  isRead      Boolean          @default(false)
+  actorUserId String?
+  videoId     String?
+  commentId   String?
+  /// Prevents duplicate notifications for the same logical event.
+  dedupeKey   String?          @unique
+  createdAt   DateTime         @default(now())
+
+  user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Analytics (aggregated, derived from real events — never hard-coded)
+// ---------------------------------------------------------------------------
+
+model VideoDailyStat {
+  id           String   @id @default(cuid())
+  videoId      String
+  day          DateTime @db.Date
+  views        Int      @default(0)
+  watchSeconds Int      @default(0)
+  likes        Int      @default(0)
+  comments     Int      @default(0)
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, day])
+  @@index([day])
+  @@map("video_daily_stats")
+}
+
+model ChannelDailyStat {
+  id               String   @id @default(cuid())
+  channelId        String
+  day              DateTime @db.Date
+  views            Int      @default(0)
+  watchSeconds     Int      @default(0)
+  subscribersGained Int     @default(0)
+  subscribersLost  Int      @default(0)
+  uploads          Int      @default(0)
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, day])
+  @@index([day])
+  @@map("channel_daily_stats")
+}
+
+// ---------------------------------------------------------------------------
+// Moderation
+// ---------------------------------------------------------------------------
+
+model CommentReport {
+  id         String       @id @default(cuid())
+  commentId  String
+  reporterId String
+  reason     String
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+
+  comment  Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter User    @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, reporterId])
+  @@map("comment_reports")
+}
+
+model ContentReport {
+  id         String       @id @default(cuid())
+  videoId    String
+  reporterId String
+  reason     String
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+
+  video    Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  reporter User  @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, reporterId])
+  @@map("content_reports")
+}
+
+// ---------------------------------------------------------------------------
+// Rate limiting (persistent so throttling survives restarts and works across
+// multiple app instances — an in-memory limiter would not)
+// ---------------------------------------------------------------------------
+
+model RateLimitBucket {
+  /// Caller-supplied scope, e.g. "login:ip:127.0.0.1" or "upload:user:abc".
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
+}
+
+// ---------------------------------------------------------------------------
+// Background jobs (DB-backed queue: no external broker required to run)
+// ---------------------------------------------------------------------------
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  lastError   String?   @db.Text
+  dedupeKey   String?   @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, runAt])
+  @@map("jobs")
+}
