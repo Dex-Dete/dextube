@@ -21,6 +21,8 @@ internal interfaces may still change between releases.
 - Administrator job diagnostics and exact storage/queue health metrics.
 - Persistent 0.25×–4× playback-speed preference and honest caption language
   handling.
+- Optional YouTube OAuth/PKCE ownership verification using
+  `channels.list(mine=true)`; no media downloader is enabled by this stage.
 
 - Initial project scaffold: a Next.js 16 (App Router) + React 19 + TypeScript
   modular monolith targeting Fedora Linux first while remaining portable.

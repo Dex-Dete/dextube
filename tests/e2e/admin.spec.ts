@@ -167,6 +167,7 @@ test.describe("administrator pages", () => {
       // The import page, showing the real imported channel.
       await page.goto("/admin/import");
       await expect(page.getByRole("heading", { name: "Import", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: /YouTube ownership OAuth|Verify YouTube ownership/ })).toBeVisible();
       await expect(page.getByRole("progressbar", { name: "Import storage used" })).toBeVisible();
       await expect(page.getByText(/configured import capacity/)).toBeVisible();
 

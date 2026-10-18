@@ -134,12 +134,14 @@ export function AdminImportClient({
   maxItems,
   maxConcurrency,
   youtubeApiKeyConfigured,
+  youtubeOwnerVerificationConfigured,
 }: {
   initialSources: ImportSourceSummary[];
   initialStorage: ImportStorageSummary;
   maxItems: number;
   maxConcurrency: number;
   youtubeApiKeyConfigured: boolean;
+  youtubeOwnerVerificationConfigured: boolean;
 }) {
   const [input, setInput] = useState("");
   const [scopeLimit, setScopeLimit] = useState("10");
@@ -391,6 +393,9 @@ export function AdminImportClient({
           >
             {busy === "start" ? <SpinnerIcon size={16} /> : null} Start import
           </button>
+          <a href="/api/admin/youtube/oauth/start" className="dt-btn dt-btn-secondary">
+            {youtubeOwnerVerificationConfigured ? "Verify YouTube ownership" : "Configure YouTube ownership OAuth"}
+          </a>
         </div>
 
         {error && (

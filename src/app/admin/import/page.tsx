@@ -3,6 +3,7 @@ import { PageHeader, SectionCard } from "@/components/ui";
 import { getConfig } from "@/lib/config";
 import { requireAdminPage } from "@/server/auth/admin";
 import { importLimits, importStorageSummary, listImportSources } from "@/server/services/import-sources";
+import { youtubeOAuthConfigured } from "@/server/services/youtube-oauth";
 import { AdminImportClient } from "./AdminImportClient";
 
 export const metadata: Metadata = { title: "Import" };
@@ -26,6 +27,7 @@ export default async function AdminImportPage() {
     importStorageSummary(),
   ]);
   const youtubeApiKeyConfigured = Boolean(getConfig().imports.youtubeApiKey);
+  const youtubeOwnerVerificationConfigured = youtubeOAuthConfigured();
 
   return (
     <>
@@ -45,6 +47,7 @@ export default async function AdminImportPage() {
             maxItems={limits.maxItems}
             maxConcurrency={limits.maxConcurrency}
             youtubeApiKeyConfigured={youtubeApiKeyConfigured}
+            youtubeOwnerVerificationConfigured={youtubeOwnerVerificationConfigured}
           />
         </SectionCard>
       </div>

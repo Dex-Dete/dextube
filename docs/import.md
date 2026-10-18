@@ -104,6 +104,17 @@ media restrictions or a missing API key. The official feed fallback still
 records real public metadata; an API key only expands metadata coverage and
 pagination. Media requires an authorized creator export.
 
+### 1.4 Verified owner workflow
+
+When `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET` and the registered
+callback URL are configured, the admin import page offers YouTube OAuth
+ownership verification. DEXTube verifies the channel returned by YouTube's
+`channels.list(mine=true)` endpoint. The flow uses a short-lived HTTP-only state
+cookie and PKCE; access tokens are never logged or returned to the browser.
+OAuth verification is the required safety foundation for any future owner-only
+media pipeline; it does not authorize arbitrary channels or enable media
+downloading by itself.
+
 ---
 
 ## 2. Safety properties of the fetcher

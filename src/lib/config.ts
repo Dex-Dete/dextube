@@ -125,6 +125,9 @@ const schema = z.object({
    * never media) is available.
    */
   YOUTUBE_API_KEY: z.string().optional(),
+  YOUTUBE_OAUTH_CLIENT_ID: z.string().optional(),
+  YOUTUBE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  YOUTUBE_OAUTH_REDIRECT_URI: z.string().url().optional(),
   CREATOR_EXPORT_ROOT: z.string().default("./storage/creator-exports"),
   IMPORT_MAX_ITEMS: int(500, 1, 10_000),
   IMPORT_MAX_CONCURRENCY: int(4, 1, 8),
@@ -317,6 +320,11 @@ function loadConfig() {
     },
     imports: {
       youtubeApiKey: env.YOUTUBE_API_KEY ?? null,
+      youtubeOAuth: {
+        clientId: env.YOUTUBE_OAUTH_CLIENT_ID ?? null,
+        clientSecret: env.YOUTUBE_OAUTH_CLIENT_SECRET ?? null,
+        redirectUri: env.YOUTUBE_OAUTH_REDIRECT_URI ?? `${appUrl}/api/admin/youtube/oauth/callback`,
+      },
       creatorExportRoot: env.CREATOR_EXPORT_ROOT,
       maxItems: env.IMPORT_MAX_ITEMS,
       maxConcurrency: env.IMPORT_MAX_CONCURRENCY,

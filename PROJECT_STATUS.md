@@ -4,7 +4,7 @@
 > completed work, exact test results, known bugs, and the exact next action.
 > Companion file: [`TODO.md`](./TODO.md).
 
-_Last updated: 2026-10-18 (session 6)_
+_Last updated: 2026-10-18 (session 7)_
 
 ## Session 6 — verified development wipe and portable launcher
 
@@ -19,12 +19,17 @@ Added root `start.sh` and `scripts/install-systemd.sh` for Ubuntu/Fedora
 `systemctl --user` operation. The installer builds the app, installs a
 per-user unit, and starts/restarts it without distro-specific commands.
 
+Added the first safe YouTube ownership-verification stage: optional Google OAuth
+with PKCE and short-lived HTTP-only state cookies, followed by a
+`channels.list(mine=true)` ownership check. It is exposed from `/admin/import`
+when OAuth credentials are configured. No media downloader is enabled by this
+stage.
+
 ## Session 5 — admin/import verification
 
-The local development database still contains the deliberately configured
-`admin` account and the ten MrBeast metadata entries. No destructive reset was
-run against it. `/admin` and every admin API remain server-side role-gated; a
-logged-in admin can use the import console.
+The development database now contains only the deliberately configured `admin`
+account after the verified wipe. `/admin` and every admin API remain
+server-side role-gated; a logged-in admin can use the empty import console.
 
 The import console now shows persisted item progress for each source and exact
 import storage usage/quota. Public YouTube imports remain metadata-only by
