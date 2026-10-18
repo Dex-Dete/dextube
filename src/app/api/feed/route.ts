@@ -40,7 +40,13 @@ export async function GET(request: Request) {
         offset: query.offset ?? 0,
         limit: query.limit,
       });
-      return jsonOk({ items: page.items, nextCursor: null, nextOffset: page.nextOffset, strategy: page.strategy });
+      return jsonOk({
+        items: page.items,
+        nextCursor: null,
+        nextOffset: page.nextOffset,
+        strategy: page.strategy,
+        rankingVersion: page.rankingVersion,
+      });
     }
 
     const page = await getFeed({

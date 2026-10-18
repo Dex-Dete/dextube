@@ -457,6 +457,19 @@ export interface WatchVideo {
     subscriberCount: number;
   };
   captions: Array<{ label: string; key: string; lang: string }>;
+  /**
+   * Every progressive rendition stored for this video, tallest first. Empty when
+   * the video has no separate renditions, in which case the player offers no
+   * quality menu at all.
+   */
+  renditions: Array<{
+    label: string;
+    key: string;
+    height: number;
+    width: number | null;
+    mimeType: string;
+    sizeBytes: number | null;
+  }>;
   viewer: {
     isOwner: boolean;
     subscribed: boolean;
@@ -506,7 +519,22 @@ export async function getVideoForWatch(
       createdAt: true,
       processingError: true,
       channelId: true,
-      assets: { where: { kind: "CAPTION" }, select: { label: true, storageKey: true, mimeType: true } },
+      // Both the caption tracks and every progressive rendition this video
+      // actually has on disk. The player's quality menu is built from these
+      // rows, so an option can never appear for a file that does not exist.
+      assets: {
+        where: { kind: { in: ["CAPTION", "PROGRESSIVE"] } },
+        select: {
+          kind: true,
+          label: true,
+          storageKey: true,
+          mimeType: true,
+          width: true,
+          height: true,
+          sizeBytes: true,
+        },
+        orderBy: { height: "desc" },
+      },
       channel: {
         select: { id: true, handle: true, name: true, avatarKey: true, subscriberCount: true },
       },
@@ -573,11 +601,29 @@ export async function getVideoForWatch(
     processingError: video.processingError,
     channel: video.channel,
     captions:
-      video.assets?.map((asset) => ({
-        label: asset.label ?? "Captions",
-        key: asset.storageKey,
-        lang: asset.label?.slice(-2) ?? "en",
-      })) ?? [],
+      video.assets
+        ?.filter((asset) => asset.kind === "CAPTION")
+        .map((asset) => ({
+          label: asset.label ?? "Captions",
+          key: asset.storageKey,
+          lang: asset.label?.slice(-2) ?? "en",
+        })) ?? [],
+    // Progressive renditions, tallest first. Empty for videos processed before
+    // multi-rendition output existed, or when the source is already the
+    // smallest ladder rung — in both cases the player offers no quality menu
+    // rather than showing dead options.
+    renditions:
+      video.assets
+        ?.filter((asset) => asset.kind === "PROGRESSIVE" && typeof asset.height === "number")
+        .map((asset) => ({
+          label: asset.label ?? `${asset.height}p`,
+          key: asset.storageKey,
+          height: asset.height as number,
+          width: asset.width,
+          mimeType: asset.mimeType,
+          sizeBytes: asset.sizeBytes === null ? null : Number(asset.sizeBytes),
+        }))
+        .sort((a, b) => b.height - a.height) ?? [],
     viewer: {
       isOwner,
       subscribed: Boolean(subscription),

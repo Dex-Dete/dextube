@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { FeedGrid } from "@/components/feed/FeedGrid";
 import { SubscribeButton } from "@/components/watch/SubscribeButton";
+import { EmptyState, PageHeader, PlaylistCard } from "@/components/ui";
 import { getCurrentUser } from "@/server/auth/session";
 import { getChannelProfile } from "@/server/services/channels";
 import { listPublicPlaylists } from "@/server/services/playlists";
@@ -97,27 +98,35 @@ export default async function ChannelPage({ params, searchParams }: ChannelPageP
       <div className="flex flex-wrap items-start gap-4">
         <Avatar name={channel.name} seed={channel.id} src={mediaUrl(channel.avatarKey)} size={96} />
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold leading-tight">{channel.name}</h1>
-          <p className="mt-1 text-sm text-muted">
-            @{channel.handle} · {formatCount(channel.subscriberCount)}{" "}
-            {channel.subscriberCount === 1 ? "subscriber" : "subscribers"} · {formatCount(channel.videoCount)}{" "}
-            {channel.videoCount === 1 ? "video" : "videos"}
-          </p>
-          {channel.description && <p className="mt-2 max-w-3xl text-sm text-muted">{channel.description}</p>}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <SubscribeButton
-              channelHandle={channel.handle}
-              initiallySubscribed={channel.viewerSubscribed}
-              subscriberCount={channel.subscriberCount}
-              signedIn={Boolean(user)}
-              isOwner={channel.isOwner}
-            />
-            {channel.isOwner && (
-              <Link href="/studio/channel" className="dt-btn dt-btn-secondary">
-                Edit channel
-              </Link>
-            )}
-          </div>
+          <PageHeader
+            eyebrow={`@${channel.handle}`}
+            title={channel.name}
+            description={
+              <>
+                {formatCount(channel.subscriberCount)}{" "}
+                {channel.subscriberCount === 1 ? "subscriber" : "subscribers"} · {formatCount(channel.videoCount)}{" "}
+                {channel.videoCount === 1 ? "video" : "videos"}
+              </>
+            }
+            actions={
+              <>
+                <SubscribeButton
+                  channelHandle={channel.handle}
+                  initiallySubscribed={channel.viewerSubscribed}
+                  subscriberCount={channel.subscriberCount}
+                  signedIn={Boolean(user)}
+                  isOwner={channel.isOwner}
+                />
+                {channel.isOwner && (
+                  <Link href="/studio/channel" className="dt-btn dt-btn-secondary">
+                    Edit channel
+                  </Link>
+                )}
+              </>
+            }
+          >
+            {channel.description ? <p className="max-w-3xl text-sm text-muted">{channel.description}</p> : null}
+          </PageHeader>
         </div>
       </div>
 
@@ -157,29 +166,15 @@ export default async function ChannelPage({ params, searchParams }: ChannelPageP
           />
         ) : tab === "playlists" ? (
           playlists.playlists.length === 0 ? (
-            <EmptyPanel title="No public playlists" body="This channel has not published any playlists yet." />
+            <EmptyState title="No public playlists" description="This channel has not published any playlists yet." />
           ) : (
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {playlists.playlists.map((playlist) => (
-                <li key={playlist.id} className="dt-card-hover overflow-hidden rounded-xl">
-                  <Link href={`/playlist/${playlist.id}`} className="block">
-                    <div className="dt-aspect-video relative" style={{ background: "var(--dt-surface-2)" }}>
-                      {playlist.coverKey && (
-                        <img src={mediaUrl(playlist.coverKey)!} alt="" className="h-full w-full object-cover" />
-                      )}
-                      <span
-                        className="absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                        style={{ background: "rgba(0,0,0,0.78)", color: "#fff" }}
-                      >
-                        {playlist.itemCount} {playlist.itemCount === 1 ? "video" : "videos"}
-                      </span>
-                    </div>
-                    <div className="p-3">
-                      <p className="truncate font-semibold">{playlist.title}</p>
-                      {playlist.description && <p className="mt-0.5 line-clamp-2 text-xs text-muted">{playlist.description}</p>}
-                    </div>
-                  </Link>
-                </li>
+                <PlaylistCard
+                  key={playlist.id}
+                  playlist={playlist}
+                  subtitle={playlist.description ?? undefined}
+                />
               ))}
             </ul>
           )
@@ -192,9 +187,9 @@ export default async function ChannelPage({ params, searchParams }: ChannelPageP
             limit={24}
             columns={4}
             emptyState={
-              <EmptyPanel
+              <EmptyState
                 title={tab === "shorts" ? "No Shorts yet" : "No videos yet"}
-                body={
+                description={
                   channel.isOwner
                     ? "Upload something to see it here."
                     : "This channel has not published anything in this section yet."
@@ -253,15 +248,6 @@ function ChannelAbout({
           <dd className="font-medium tabular-nums">{formatCount(shortCount)}</dd>
         </div>
       </dl>
-    </div>
-  );
-}
-
-function EmptyPanel({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="dt-card flex flex-col items-center gap-2 px-6 py-16 text-center">
-      <h2 className="text-lg font-bold">{title}</h2>
-      <p className="max-w-md text-sm text-muted">{body}</p>
     </div>
   );
 }

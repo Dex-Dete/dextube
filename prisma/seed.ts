@@ -123,10 +123,10 @@ const SEED_VIDEOS: SeedVideo[] = [
       "Algorithms are recipes for computation. In this first episode we look at why a precise sequence of steps matters more than clever code, and how to reason about the steps before writing any of them.",
     category: "Science & Technology",
     tags: ["algorithms", "computer-science", "beginners"],
-    media: "landscape-10s.mp4",
+    media: "hd-720p-10s.mp4",
     durationSec: 10,
-    width: 640,
-    height: 360,
+    width: 1280,
+    height: 720,
     isShort: false,
     visibility: "PUBLIC",
   },
@@ -137,10 +137,10 @@ const SEED_VIDEOS: SeedVideo[] = [
       "A short, illustrated tour of Charles Babbage's machine and why its design anticipated the separation of storage and processing that every computer still uses.",
     category: "Education",
     tags: ["history", "computing", "babbage"],
-    media: "landscape-10s.mp4",
+    media: "hd-720p-10s.mp4",
     durationSec: 10,
-    width: 640,
-    height: 360,
+    width: 1280,
+    height: 720,
     isShort: false,
     visibility: "PUBLIC",
   },
@@ -164,10 +164,10 @@ const SEED_VIDEOS: SeedVideo[] = [
       "Lexing, parsing, semantic analysis, optimisation and code generation: a tour of the pipeline every compiler follows, and where bugs like to hide in it.",
     category: "Science & Technology",
     tags: ["compilers", "systems", "engineering"],
-    media: "landscape-10s.mp4",
+    media: "hd-720p-10s.mp4",
     durationSec: 10,
-    width: 640,
-    height: 360,
+    width: 1280,
+    height: 720,
     isShort: false,
     visibility: "PUBLIC",
   },
@@ -178,10 +178,10 @@ const SEED_VIDEOS: SeedVideo[] = [
       "A practical method for finding the cause of a defect: reproduce, shrink, observe, hypothesise, test. No talent required, only discipline.",
     category: "Education",
     tags: ["debugging", "craft", "teams"],
-    media: "landscape-10s.mp4",
+    media: "hd-720p-10s.mp4",
     durationSec: 10,
-    width: 640,
-    height: 360,
+    width: 1280,
+    height: 720,
     isShort: false,
     visibility: "PUBLIC",
   },
@@ -205,10 +205,10 @@ const SEED_VIDEOS: SeedVideo[] = [
       "The Apollo guidance computer had to be correct on the first try. We look at priority-driven scheduling, restarts and building software that degrades gracefully under overload.",
     category: "Science & Technology",
     tags: ["apollo", "reliability", "engineering"],
-    media: "landscape-10s.mp4",
+    media: "hd-720p-10s.mp4",
     durationSec: 10,
-    width: 640,
-    height: 360,
+    width: 1280,
+    height: 720,
     isShort: false,
     visibility: "PUBLIC",
   },
@@ -218,10 +218,10 @@ const SEED_VIDEOS: SeedVideo[] = [
     description: "What changes when you assume every component will fail at the worst moment.",
     category: "Education",
     tags: ["reliability", "design"],
-    media: "landscape-10s.mp4",
+    media: "hd-720p-10s.mp4",
     durationSec: 10,
-    width: 640,
-    height: 360,
+    width: 1280,
+    height: 720,
     isShort: false,
     visibility: "PUBLIC",
   },
@@ -232,10 +232,10 @@ const SEED_VIDEOS: SeedVideo[] = [
       "Techniques for getting oriented in an unfamiliar codebase quickly: start at the edges, follow the data, and write down what you learn as you go.",
     category: "Science & Technology",
     tags: ["open-source", "code-review", "systems"],
-    media: "landscape-10s.mp4",
+    media: "hd-720p-10s.mp4",
     durationSec: 10,
-    width: 640,
-    height: 360,
+    width: 1280,
+    height: 720,
     isShort: false,
     visibility: "PUBLIC",
   },
@@ -362,9 +362,43 @@ async function main(): Promise<void> {
 
     const existing = await prisma.video.findFirst({
       where: { channelId: owner.channelId, title: spec.title, deletedAt: null },
-      select: { id: true },
+      select: { id: true, sourceFilename: true, width: true, height: true, playbackKey: true },
     });
     if (existing) {
+      // The spec table above is the source of truth for a demo video's bytes.
+      // If an earlier seed used a different test clip (for example the 640x360
+      // landscape file before the 1280x720 rendition fixture existed), re-point
+      // it at the current fixture so the recorded dimensions match the file on
+      // disk. This is intentionally narrow and idempotent: it only touches the
+      // demo's own media keys and never engagement rows (comments, views,
+      // reactions, playlists).
+      if (
+        existing.sourceFilename !== spec.media ||
+        existing.width !== spec.width ||
+        existing.height !== spec.height
+      ) {
+        const sourceFile = media[spec.media]!;
+        const sourceKey = `videos/${existing.id}/source/original.mp4`;
+        const playbackKey = `videos/${existing.id}/playback/${spec.height}p.mp4`;
+        await copyFixture(storage, sourceFile, sourceKey);
+        await copyFixture(storage, sourceFile, playbackKey);
+        await prisma.video.update({
+          where: { id: existing.id },
+          data: {
+            width: spec.width,
+            height: spec.height,
+            durationSec: spec.durationSec,
+            sourceFilename: spec.media,
+            originalKey: sourceKey,
+            playbackKey,
+            sizeBytes: BigInt((await storage.stat(sourceKey))?.size ?? 0),
+          },
+        });
+        if (existing.playbackKey && existing.playbackKey !== playbackKey) {
+          await storage.delete(existing.playbackKey);
+        }
+        console.log(`     ~ ${spec.title} re-pointed at ${spec.media} (${spec.width}x${spec.height})`);
+      }
       videoIds.push({ id: existing.id, channel: spec.channel, durationSec: spec.durationSec });
       continue;
     }

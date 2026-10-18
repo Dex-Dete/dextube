@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
+import { EmptyState, PageHeader, PlaylistCard } from "@/components/ui";
 import { getCurrentUser } from "@/server/auth/session";
 import { listOwnPlaylists } from "@/server/services/playlists";
 import { listSubscriptions } from "@/server/services/channels";
@@ -32,8 +33,12 @@ export default async function PlaylistsPage() {
 
   return (
     <div className="px-4 py-5 sm:px-6">
-      <h1 className="mb-1 text-xl font-bold">Your library</h1>
-      <p className="mb-6 text-sm text-muted">Playlists, saved videos and the channels you follow.</p>
+      <PageHeader
+        eyebrow="Library"
+        title="Your library"
+        description="Playlists, saved videos and the channels you follow."
+        className="mb-6"
+      />
 
       <section className="mb-8">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-subtle">Built-in</h2>
@@ -46,9 +51,11 @@ export default async function PlaylistsPage() {
           <CreatePlaylistForm />
         </div>
         {custom.length === 0 ? (
-          <p className="dt-card px-4 py-8 text-center text-sm text-muted">
-            You have not created any playlists yet. Use “New playlist” to start one.
-          </p>
+          <EmptyState
+            variant="inline"
+            title="No playlists yet"
+            description="You have not created any playlists yet. Use “New playlist” to start one."
+          />
         ) : (
           <PlaylistRow playlists={custom} />
         )}
@@ -57,9 +64,16 @@ export default async function PlaylistsPage() {
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-subtle">Subscriptions</h2>
         {subscriptions.items.length === 0 ? (
-          <p className="dt-card px-4 py-8 text-center text-sm text-muted">
-            You are not following any channels yet.
-          </p>
+          <EmptyState
+            variant="inline"
+            title="Not following anyone yet"
+            description="You are not following any channels yet."
+            actions={
+              <Link href="/results?q=" className="dt-btn dt-btn-secondary">
+                Find channels
+              </Link>
+            }
+          />
         ) : (
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {subscriptions.items.map(({ channel }) => (
@@ -98,35 +112,10 @@ function PlaylistRow({
     systemKind: string | null;
   }>;
 }) {
-  const hrefFor = (playlist: { id: string; systemKind: string | null }) =>
-    playlist.systemKind === "watch_later"
-      ? "/playlist/watch-later"
-      : playlist.systemKind === "liked_videos"
-        ? "/playlist/liked"
-        : `/playlist/${playlist.id}`;
-
   return (
     <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {playlists.map((playlist) => (
-        <li key={playlist.id} className="dt-card-hover overflow-hidden rounded-xl">
-          <Link href={hrefFor(playlist)} className="block">
-            <div className="dt-aspect-video relative" style={{ background: "var(--dt-surface-2)" }}>
-              {playlist.coverKey ? (
-                <img src={mediaUrl(playlist.coverKey)!} alt="" className="h-full w-full object-cover" />
-              ) : null}
-              <span
-                className="absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                style={{ background: "rgba(0,0,0,0.78)", color: "#fff" }}
-              >
-                {playlist.itemCount} {playlist.itemCount === 1 ? "video" : "videos"}
-              </span>
-            </div>
-            <div className="p-3">
-              <p className="truncate font-semibold">{playlist.title}</p>
-              <p className="text-xs text-subtle">{playlist.isSystem ? "Built-in playlist" : "Playlist"}</p>
-            </div>
-          </Link>
-        </li>
+        <PlaylistCard key={playlist.id} playlist={playlist} />
       ))}
     </ul>
   );

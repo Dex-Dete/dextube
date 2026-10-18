@@ -139,6 +139,8 @@ model User {
   uploads       Upload[]
   reports       ContentReport[]
   commentReports CommentReport[]
+  videoFeedback VideoFeedback[]
+  hiddenChannels HiddenChannel[]
 
   @@index([createdAt])
   @@map("users")
@@ -215,6 +217,7 @@ model Channel {
   playlists     Playlist[]
   subscriptions Subscription[]
   dailyStats    ChannelDailyStat[]
+  hiddenBy      HiddenChannel[]
 
   @@index([subscriberCount])
   // Trigram indexes for fast ILIKE '%term%' search. Declared here (with the
@@ -313,6 +316,7 @@ model Video {
   views         View[]
   dailyStats    VideoDailyStat[]
   reports       ContentReport[]
+  feedback      VideoFeedback[]
 
   @@index([status, visibility, publishedAt])
   @@index([channelId, status, publishedAt])
@@ -637,4 +641,41 @@ model Job {
 
   @@index([status, runAt])
   @@map("jobs")
+}
+
+/// Explicit "not interested" feedback.
+///
+/// This is the viewer's own signal, stored separately from engagement metrics so
+/// that a dismissal can never be mistaken for a negative engagement event, and
+/// so it can be deleted in one place when the viewer resets recommendations.
+model VideoFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, createdAt])
+  @@map("video_feedback")
+}
+
+/// "Don't recommend this channel", per viewer.
+///
+/// Distinct from blocking: the channel stays reachable, it is simply withheld
+/// from this viewer's recommendations.
+model HiddenChannel {
+  id        String   @id @default(cuid())
+  userId    String
+  channelId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channelId])
+  @@index([userId, createdAt])
+  @@map("hidden_channels")
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { HistoryIcon } from "@/components/icons";
 import { getCurrentUser } from "@/server/auth/session";
 import { getContinueWatching, listWatchHistory } from "@/server/services/videos";
 import { HistoryList, type HistoryEntryDTO } from "./HistoryList";
@@ -26,21 +28,23 @@ export default async function HistoryPage() {
 
   return (
     <div className="px-4 py-5 sm:px-6">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold">Watch history</h1>
-          <p className="mt-1 text-sm text-muted">Videos you have watched, newest first.</p>
-        </div>
-        {!user.saveWatchHistory && (
-          <p className="dt-alert dt-alert-info max-w-sm text-xs">
-            Watch history saving is turned off in{" "}
-            <Link href="/settings" className="dt-link">
-              Settings
-            </Link>
-            . New videos will not be recorded.
-          </p>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Your activity"
+        title="Watch history"
+        description="Videos you have watched, newest first."
+        actions={
+          !user.saveWatchHistory ? (
+            <p className="dt-alert dt-alert-info max-w-sm text-xs">
+              Watch history saving is turned off in{" "}
+              <Link href="/settings" className="dt-link">
+                Settings
+              </Link>
+              . New videos will not be recorded.
+            </p>
+          ) : undefined
+        }
+        className="mb-6"
+      />
 
       {continueWatching.length > 0 && (
         <section className="mb-8">
@@ -75,15 +79,16 @@ export default async function HistoryPage() {
       )}
 
       {page.items.length === 0 ? (
-        <div className="dt-card flex flex-col items-center gap-2 px-6 py-16 text-center">
-          <h2 className="text-lg font-bold">No watch history</h2>
-          <p className="max-w-md text-sm text-muted">
-            Videos you watch while signed in show up here, so you can find them again.
-          </p>
-          <Link href="/" className="dt-btn dt-btn-secondary">
-            Browse videos
-          </Link>
-        </div>
+        <EmptyState
+          icon={<HistoryIcon size={20} />}
+          title="No watch history"
+          description="Videos you watch while signed in show up here, so you can find them again."
+          actions={
+            <Link href="/" className="dt-btn dt-btn-secondary">
+              Browse videos
+            </Link>
+          }
+        />
       ) : (
         <HistoryList initialItems={page.items as unknown as HistoryEntryDTO[]} initialNextCursor={page.nextCursor} />
       )}

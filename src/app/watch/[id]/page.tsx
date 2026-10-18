@@ -78,6 +78,22 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
 
   const playbackUrl = video.isPlayable ? streamUrl(video.playbackKey ?? null) : null;
   const downloadUrl = viewer.userId && video.viewer.isOwner ? streamUrl(video.originalKey ?? null, { download: true }) : null;
+
+  /**
+   * The quality menu is built from what is actually stored for this video.
+   *
+   * The primary playback file is offered first, labelled from its matching
+   * `PROGRESSIVE` asset when one exists (the pipeline records the real rendition
+   * height there) and falling back to the record's own dimensions. Any other
+   * stored rendition follows, tallest first. A video with a single file
+   * therefore gets no quality menu at all, because `VideoPlayer` only renders
+   * the menu when there is more than one real source.
+   */
+  const renditionByKey = new Map(video.renditions.map((rendition) => [rendition.key, rendition]));
+  const playerRenditions = video.isPlayable
+    ? buildPlayerRenditions(playbackUrl, video.playbackKey, video.height, video.renditions, renditionByKey)
+    : [];
+  const nextVideo = related[0] ? { href: `/watch/${related[0].id}`, title: related[0].title } : null;
   const posterUrl = mediaUrl(video.posterKey ?? video.thumbnailKey);
   const canModerate = video.viewer.isOwner || viewer.role !== "USER";
 
@@ -87,9 +103,12 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         <VideoPlayer
           videoId={video.id}
           src={playbackUrl}
+          renditions={playerRenditions}
           posterUrl={posterUrl}
           startAtSeconds={video.viewer.progressSeconds}
           trackProgress={Boolean(viewer.userId)}
+          title={video.title}
+          nextVideo={nextVideo}
           captions={video.captions.map((caption) => ({
             label: caption.label,
             lang: caption.lang,
@@ -204,4 +223,55 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
       </aside>
     </div>
   );
+}
+
+interface RenditionRow {
+  key: string;
+  label: string;
+  height: number | null;
+}
+
+interface PlayerRenditionProp {
+  label: string;
+  src: string;
+  height: number | null;
+}
+
+/**
+ * Assemble the player's rendition list from stored assets only.
+ *
+ * The primary playback file is included first (so the default source always
+ * appears in the menu labelled correctly), then every other stored rendition,
+ * de-duplicated by storage key and sorted tallest first. Renditions whose URL
+ * cannot be resolved are dropped rather than offered as a broken option.
+ */
+function buildPlayerRenditions(
+  playbackUrl: string | null,
+  playbackKey: string | null,
+  videoHeight: number | null,
+  renditions: RenditionRow[],
+  byKey: Map<string, RenditionRow>,
+): PlayerRenditionProp[] {
+  const out: PlayerRenditionProp[] = [];
+  const seen = new Set<string>();
+
+  if (playbackUrl && playbackKey) {
+    const match = byKey.get(playbackKey);
+    out.push({
+      src: playbackUrl,
+      label: match?.label ?? (videoHeight ? `${videoHeight}p` : "Source"),
+      height: match?.height ?? videoHeight,
+    });
+    seen.add(playbackKey);
+  }
+
+  for (const rendition of renditions) {
+    if (seen.has(rendition.key)) continue;
+    const url = streamUrl(rendition.key);
+    if (!url) continue;
+    seen.add(rendition.key);
+    out.push({ src: url, label: rendition.label, height: rendition.height });
+  }
+
+  return out.sort((a, b) => (b.height ?? 0) - (a.height ?? 0));
 }

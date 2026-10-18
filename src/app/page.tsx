@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { FeedGrid } from "@/components/feed/FeedGrid";
+import { RecommendationReset } from "@/components/feed/RecommendationReset";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { HomeIcon, SearchIcon } from "@/components/icons";
 import { getCurrentUser } from "@/server/auth/session";
 import { getRankedHomeFeed } from "@/server/recsys";
+import { getFeedbackSummary } from "@/server/services/feedback";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +29,44 @@ const CATEGORIES = [
  * is useful with JavaScript disabled and the LCP is a real video card rather
  * than a client-side spinner. Behind it, `/api/feed?tab=home` returns the same
  * ranking so "load more" stays consistent.
+ *
+ * The layout is deliberately the plainest of the top-level pages: a compact
+ * header, the category filter and the feed. Trending, Subscriptions and Search
+ * each adopt a different shape so the four surfaces do not read as one template.
  */
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
   const { category } = await searchParams;
   const user = await getCurrentUser();
-  const page = await getRankedHomeFeed({ userId: user?.id ?? null, limit: 24, offset: 0 });
+  const [page, feedback] = await Promise.all([
+    getRankedHomeFeed({ userId: user?.id ?? null, limit: 24, offset: 0 }),
+    user ? getFeedbackSummary(user.id) : Promise.resolve(null),
+  ]);
+  const hiddenCount = feedback ? feedback.dismissals + feedback.hiddenChannels : 0;
+
+  const description = category
+    ? `Published videos in ${category}.`
+    : user
+      ? page.strategy === "personalized"
+        ? "Ranked for you using your subscriptions, interests and watch history."
+        : "Popular and recent videos. Subscribe to channels or pick interests in Settings to personalise this feed."
+      : "Popular and recent videos from DEXTube. Sign in to get a personalised feed.";
 
   return (
     <div className="px-4 py-5 sm:px-6">
-      <div className="mb-5 flex items-center gap-2 overflow-x-auto dt-no-scrollbar">
+      <PageHeader
+        eyebrow={user ? "For you" : "DEXTube"}
+        title={category ?? "Home"}
+        description={description}
+        actions={
+          !category && hiddenCount > 0 ? <RecommendationReset total={hiddenCount} /> : undefined
+        }
+        className="mb-4"
+      />
+
+      <nav
+        aria-label="Categories"
+        className="mb-5 flex items-center gap-2 overflow-x-auto dt-no-scrollbar"
+      >
         <CategoryChip label="All" href="/" active={!category} />
         {CATEGORIES.map((name) => (
           <CategoryChip
@@ -43,17 +76,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             active={category === name}
           />
         ))}
-      </div>
-
-      {!category && (
-        <p className="mb-4 text-xs text-subtle">
-          {user
-            ? page.strategy === "personalized"
-              ? "Ranked for you using your subscriptions, interests and watch history."
-              : "Popular and recent videos. Subscribe to channels or pick interests in Settings to personalise this feed."
-            : "Popular and recent videos from DEXTube. Sign in to get a personalised feed."}
-        </p>
-      )}
+      </nav>
 
       <FeedGrid
         initialItems={page.items}
@@ -61,6 +84,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         mode="offset"
         endpoint={category ? `/api/feed?tab=home&category=${encodeURIComponent(category)}` : "/api/feed?tab=home"}
         limit={24}
+        recommendationControls={Boolean(user) && !category}
         emptyState={category ? <CategoryEmpty category={category} /> : <HomeEmpty signedIn={Boolean(user)} />}
       />
     </div>
@@ -86,32 +110,35 @@ function CategoryChip({ label, href, active }: { label: string; href: string; ac
 
 function HomeEmpty({ signedIn }: { signedIn: boolean }) {
   return (
-    <div className="dt-card flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <h2 className="text-lg font-bold">Welcome to DEXTube</h2>
-      <p className="max-w-lg text-sm text-muted">
-        There are no published videos yet. DEXTube is self-hosted, so the catalogue starts empty — upload the first
-        video to see the feed come alive.
-      </p>
-      <div className="flex flex-wrap justify-center gap-2">
-        <Link href={signedIn ? "/studio/upload" : "/register"} className="dt-btn dt-btn-primary">
-          {signedIn ? "Upload a video" : "Create an account"}
-        </Link>
-        <Link href="/shorts" className="dt-btn dt-btn-secondary">
-          Browse Shorts
-        </Link>
-      </div>
-    </div>
+    <EmptyState
+      icon={<HomeIcon size={20} />}
+      title="Welcome to DEXTube"
+      description="There are no published videos yet. DEXTube is self-hosted, so the catalogue starts empty — upload the first video to see the feed come alive."
+      actions={
+        <>
+          <Link href={signedIn ? "/studio/upload" : "/register"} className="dt-btn dt-btn-primary">
+            {signedIn ? "Upload a video" : "Create an account"}
+          </Link>
+          <Link href="/shorts" className="dt-btn dt-btn-secondary">
+            Browse Shorts
+          </Link>
+        </>
+      }
+    />
   );
 }
 
 function CategoryEmpty({ category }: { category: string }) {
   return (
-    <div className="dt-card flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <h2 className="text-lg font-bold">Nothing in {category} yet</h2>
-      <p className="text-sm text-muted">Try another category or browse the full feed.</p>
-      <Link href="/" className="dt-btn dt-btn-secondary">
-        Show all videos
-      </Link>
-    </div>
+    <EmptyState
+      icon={<SearchIcon size={20} />}
+      title={`Nothing in ${category} yet`}
+      description="Try another category or browse the full feed."
+      actions={
+        <Link href="/" className="dt-btn dt-btn-secondary">
+          Show all videos
+        </Link>
+      }
+    />
   );
 }

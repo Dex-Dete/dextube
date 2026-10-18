@@ -35,6 +35,11 @@ function context(overrides: Partial<RankingContext> = {}): RankingContext {
     subscribedChannelIds: new Set(),
     interests: new Set(),
     watchedVideoIds: new Set(),
+    completionAffinity: new Map(),
+    likedChannelIds: new Set(),
+    preferredLanguages: new Set(),
+    suppressedVideoIds: new Set(),
+    hiddenChannelIds: new Set(),
     weights: DEFAULT_WEIGHTS,
     ...overrides,
   };
@@ -80,7 +85,7 @@ describe("recommender — transparency and ordering", () => {
   });
 
   it("derives interest tokens from category and tags, lowercased", () => {
-    const tokens = interestTokens({ title: "x", category: "Film & Animation", tags: ["Retro", "8-bit"] });
+    const tokens = interestTokens({ category: "Film & Animation", tags: ["Retro", "8-bit"] });
     expect(tokens).toContain("film & animation");
     expect(tokens).toContain("retro");
     expect(tokens).toContain("8-bit");

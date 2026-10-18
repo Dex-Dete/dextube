@@ -68,9 +68,50 @@ internal interfaces may still change between releases.
   `SECURITY.md`, this changelog, and `docs/{architecture,database,deployment,security,dependencies,fedora}.md`.
 - Operations scripts for Fedora: `scripts/db-up.sh`, `db-down.sh`,
   `fedora-install.sh`, `start.sh`, `stop.sh`, `backup.sh`, and `restore.sh`.
+- Shared UI primitives in `src/components/ui/` (`EmptyState`, `PageHeader`,
+  `SectionCard`, `StatCard`, `PlaylistCard`, `Skeletons`), replacing thirteen
+  duplicated empty states and three bespoke playlist cards. The top-level
+  surfaces now have genuinely different layouts — home is a grid with a category
+  filter, trending is a numbered ranked list, subscriptions is grouped by
+  channel, and search results are counted sections — instead of one template
+  reused four times.
+- Route-level `loading.tsx` skeletons and a root `error.tsx` boundary, and a
+  self-hosted Inter webfont loaded through `next/font`.
+- `scripts/make-renditions.ts` (`npm run make:renditions`), which produces real
+  scaled MP4 renditions from each video's source through the storage abstraction
+  and records them as `PROGRESSIVE` assets, so the player's quality menu has
+  genuine files to point at. It never upscales, and re-running it reuses existing
+  renditions.
+- Recommendation feedback: the `VideoFeedback` and `HiddenChannel` models and
+  `POST/DELETE /api/feed/feedback`. The feed response now reports the
+  `rankingVersion` and which strategy produced the page.
+- `tests/unit/recsys-ranking.test.ts` (scoring, saturation, diversity, cold
+  start, exclusions, weight parsing) and `tests/e2e/player.spec.ts` (real
+  playback, the quality menu, speed, keyboard control, resume, and the
+  single-rendition case).
 
 ### Changed
 
+- **The video player is no longer the browser's native control bar.** It is a
+  custom, accessible layer over a plain `<video>` element, shipped together with
+  the "DEXTube 2.0" design pass. Added: a real quality menu built from the video's
+  stored `PROGRESSIVE` renditions (it appears only when at least two exist, and
+  manual switching preserves the playhead — DEXTube makes no adaptive-bitrate
+  claim), speed control from 0.25× to 2×, a captions menu shown only when a
+  `CAPTION` asset exists, picture-in-picture, fullscreen with best-effort
+  orientation lock, a seek bar with buffered range and a time tooltip, volume,
+  auto-hiding controls, an on-screen keyboard reference, autoplay-next, resume
+  with a "Start over" escape hatch, an error state with retry, and throttled
+  progress writes flushed with `keepalive` on pause and page hide.
+- **The recommender is now `heuristic-2`**, a documented weighted linear model
+  with a version, not a black box: recency, saturated engagement, subscriptions,
+  interests, completion affinity, previously-liked channels, language and an
+  already-watched penalty. Weights are overridable with the `RANKING_WEIGHTS`
+  environment variable. Diversity is enforced structurally (3 per channel, 8 per
+  category) and cold start deliberately avoids being a popularity list.
+- The recommender reads all of its signals with bounded queries, so feed latency
+  no longer grows with account age, and history-derived signals are only read
+  when `saveWatchHistory` is enabled.
 - Media encoding now negotiates an H.264 encoder at runtime instead of assuming
   `libx264`, so a stock Fedora `ffmpeg-free` install transcodes out of the box;
   the chosen encoder is reported by `npm run doctor` and `/api/health`.
@@ -83,9 +124,25 @@ internal interfaces may still change between releases.
 - Feed grids, the Studio video editor, the mobile navigation drawer and the
   search box resynchronise with new server props by adjusting state during
   render instead of in an effect.
+- **Recommendation feedback is the viewer's own decision and outranks the
+  ranking**: "Not interested" and "Don't recommend this channel" are stored
+  separately from engagement data and are reversible inline, and "Reset
+  recommendations" clears them without touching watch history.
+- `PROJECT_STATUS.md` and `TODO.md` are tracked in the repository as the
+  session-continuity record, with machine-specific details removed.
 
 ### Fixed
 
+- **The player's seek bar was pinned at zero on a fast connection.** The
+  `<video>` is server-rendered with its source, so the browser could finish
+  loading metadata before React hydrated and attached listeners; the missed
+  `loadedmetadata` event left the duration at `0`, the total time reading `0:00`
+  and seeking impossible. The effect now applies the element's existing
+  `readyState` instead of waiting for an event that has already fired.
+- **The recommender's interest signal never fired for real feeds.** `toCard()`
+  dropped `category`, `tags` and `language`, so `interestTokens()` always
+  returned an empty list. The feed now carries those fields through to the
+  ranker.
 - FFmpeg does not create output directories, which caused thumbnail generation to
   fail with a confusing error; every media helper now creates its parent
   directory first.
@@ -121,4 +178,4 @@ internal interfaces may still change between releases.
 - Root metadata no longer triggers Next.js's "metadataBase property … is not set"
   warning, and relative Open Graph/icon URLs resolve against `APP_URL`.
 
-[Unreleased]: https://example.invalid/dextube/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Dex-Dete/dextube/compare/v0.1.0...HEAD

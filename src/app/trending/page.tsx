@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { FeedGrid } from "@/components/feed/FeedGrid";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { SparkIcon } from "@/components/icons";
 import { getCurrentUser } from "@/server/auth/session";
 import { getFeed } from "@/server/services/videos";
 
@@ -10,7 +12,9 @@ export const dynamic = "force-dynamic";
  * Trending.
  *
  * A transparent blend of recent views and freshness — not a claim of a
- * machine-learned ranking. The ordering is explained to the user on the page.
+ * machine-learned ranking. The ordering is explained to the user on the page,
+ * and it is presented as an explicit ranked list so the ranking is visible
+ * rather than implied by an unordered grid.
  */
 export default async function TrendingPage() {
   const user = await getCurrentUser();
@@ -23,11 +27,12 @@ export default async function TrendingPage() {
 
   return (
     <div className="px-4 py-5 sm:px-6">
-      <h1 className="mb-1 text-xl font-bold">Trending</h1>
-      <p className="mb-5 text-sm text-muted">
-        Ranked by recent view counts with a freshness window, so brand-new and newly popular videos surface. This is a
-        transparent heuristic, not a learned model.
-      </p>
+      <PageHeader
+        eyebrow="Ranked list"
+        title="Trending"
+        description="Ranked by recent view counts with a freshness window, so brand-new and newly popular videos surface. This is a transparent heuristic, not a learned model."
+        className="mb-5"
+      />
 
       <FeedGrid
         initialItems={page.items}
@@ -35,11 +40,13 @@ export default async function TrendingPage() {
         mode="cursor"
         endpoint="/api/feed?tab=trending"
         limit={24}
+        variant="ranked"
         emptyState={
-          <div className="dt-card flex flex-col items-center gap-2 px-6 py-16 text-center">
-            <h2 className="text-lg font-bold">Nothing is trending yet</h2>
-            <p className="max-w-md text-sm text-muted">Once videos are published and watched, they show up here.</p>
-          </div>
+          <EmptyState
+            icon={<SparkIcon size={20} />}
+            title="Nothing is trending yet"
+            description="Once videos are published and watched, they show up here."
+          />
         }
       />
     </div>

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Shell } from "@/components/shell/Shell";
 import { ThemeScript } from "@/components/shell/ThemeScript";
@@ -7,6 +8,18 @@ import { getCurrentUser } from "@/server/auth/session";
 import { getNavData } from "@/server/services/nav";
 import { getConfig } from "@/lib/config";
 import type { ViewerDTO } from "@/lib/dto";
+
+/**
+ * Inter is self-hosted by Next.js at build time (the browser never contacts
+ * Google), which is what keeps the strict `font-src 'self' data:` CSP working.
+ * The generated `--font-inter` variable is what `--font-sans` in globals.css
+ * points at, so the named face is the one that actually renders.
+ */
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 /**
  * Metadata is generated (not a static object) so `metadataBase` can be the
@@ -65,7 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const config = getConfig();
 
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" data-theme="light" suppressHydrationWarning className={inter.variable}>
       <head>
         <ThemeScript />
       </head>

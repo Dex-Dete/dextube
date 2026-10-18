@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { VideoCard, type VideoCardProps } from "@/components/video/VideoCard";
+import { Avatar } from "@/components/Avatar";
+import { EmptyState } from "@/components/ui";
+import { mediaUrl } from "@/lib/media-url";
 import { api } from "@/lib/api-client";
 
 export interface FeedResponse {
@@ -22,6 +26,19 @@ export interface FeedGridProps {
   limit?: number;
   emptyState?: React.ReactNode;
   columns?: 1 | 2 | 3 | 4;
+  /**
+   * Presentation of the loaded items. All three share the same pagination and
+   * de-duplication so a page only chooses the shape that fits its content:
+   * `grid` (default), `ranked` (a numbered list, used by Trending) and
+   * `grouped` (videos bucketed under a channel heading, used by Subscriptions).
+   */
+  variant?: "grid" | "ranked" | "grouped";
+  /**
+   * Offer the per-card recommendation controls. The home feed sets this when a
+   * viewer is signed in, because that is the only place a dismissal changes
+   * what is shown.
+   */
+  recommendationControls?: boolean;
 }
 
 /**
@@ -41,6 +58,8 @@ export function FeedGrid({
   limit = 24,
   emptyState,
   columns = 3,
+  variant = "grid",
+  recommendationControls = false,
 }: FeedGridProps) {
   const [items, setItems] = useState(initialItems);
   const [cursor, setCursor] = useState(initialCursor);
@@ -123,11 +142,17 @@ export function FeedGrid({
 
   return (
     <div>
-      <div className={gridClass}>
-        {items.map((video) => (
-          <VideoCard key={video.id} video={video} />
-        ))}
-      </div>
+      {variant === "ranked" ? (
+        <RankedList items={items} />
+      ) : variant === "grouped" ? (
+        <GroupedByChannel items={items} columns={columns} />
+      ) : (
+        <div className={gridClass}>
+          {items.map((video) => (
+            <VideoCard key={video.id} video={video} recommendationControls={recommendationControls} />
+          ))}
+        </div>
+      )}
 
       <div ref={sentinel} aria-hidden="true" className="h-1" />
 
@@ -151,11 +176,91 @@ export function FeedGrid({
   );
 }
 
-function DefaultEmpty() {
+/**
+ * Trending's presentation: one numbered row per video. The rank is part of the
+ * ordered-list semantics, so it is decorative on screen (readers announce the
+ * position from the `<ol>`) rather than a second, unlabelled number.
+ */
+function RankedList({ items }: { items: VideoCardProps["video"][] }) {
   return (
-    <div className="dt-card flex flex-col items-center gap-2 px-6 py-16 text-center">
-      <p className="text-base font-semibold">Nothing here yet</p>
-      <p className="max-w-md text-sm text-muted">Published videos will show up in this list.</p>
+    <ol className="flex flex-col divide-y divide-line">
+      {items.map((video, index) => (
+        <li key={video.id} className="flex items-start gap-4 py-4 first:pt-0">
+          <span
+            aria-hidden="true"
+            className="w-6 shrink-0 pt-0.5 text-right text-lg font-bold tabular-nums text-subtle"
+          >
+            {index + 1}
+          </span>
+          <div className="min-w-0 flex-1">
+            <VideoCard video={video} variant="list" />
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * Subscriptions' presentation: videos bucketed by channel in the order each
+ * channel first appears. Recomputing groups from the combined item list means
+ * "load more" drops later uploads into the right heading instead of starting a
+ * second flat grid.
+ */
+function GroupedByChannel({
+  items,
+  columns,
+}: {
+  items: VideoCardProps["video"][];
+  columns: 1 | 2 | 3 | 4;
+}) {
+  const groups: { channel: VideoCardProps["video"]["channel"]; videos: VideoCardProps["video"][] }[] = [];
+  const byId = new Map<string, (typeof groups)[number]>();
+  for (const video of items) {
+    let group = byId.get(video.channel.id);
+    if (!group) {
+      group = { channel: video.channel, videos: [] };
+      byId.set(video.channel.id, group);
+      groups.push(group);
+    }
+    group.videos.push(video);
+  }
+
+  const gridClass =
+    columns === 4
+      ? "grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+      : columns === 2
+        ? "grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2"
+        : "grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3";
+
+  return (
+    <div className="flex flex-col gap-9">
+      {groups.map(({ channel, videos }) => (
+        <section key={channel.id} aria-label={`Videos from ${channel.name}`}>
+          <div className="mb-4 flex items-center gap-3">
+            <Link href={`/channel/${channel.handle}`} aria-label={`${channel.name} channel`}>
+              <Avatar name={channel.name} seed={channel.id} src={mediaUrl(channel.avatarKey)} size={36} />
+            </Link>
+            <div className="min-w-0">
+              <Link href={`/channel/${channel.handle}`} className="block truncate font-semibold hover:text-brand">
+                {channel.name}
+              </Link>
+              <p className="text-xs text-subtle">
+                {videos.length} {videos.length === 1 ? "video" : "videos"}
+              </p>
+            </div>
+          </div>
+          <div className={gridClass}>
+            {videos.map((video) => (
+              <VideoCard key={video.id} video={video} hideChannel />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
+}
+
+function DefaultEmpty() {
+  return <EmptyState title="Nothing here yet" description="Published videos will show up in this list." />;
 }

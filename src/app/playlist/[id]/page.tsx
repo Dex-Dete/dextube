@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { PlaylistIcon } from "@/components/icons";
 import { getCurrentUser, getViewerContext } from "@/server/auth/session";
 import { getPlaylist, isSystemKind, systemPlaylistId } from "@/server/services/playlists";
 import { isAppError } from "@/lib/errors";
@@ -65,38 +67,44 @@ export default async function PlaylistPage({ params }: PlaylistPageProps) {
 
   return (
     <div className="px-4 py-5 sm:px-6">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">
-            {playlist.isSystem ? "Built-in playlist" : "Playlist"}
-          </p>
-          <h1 className="mt-0.5 text-2xl font-bold">{playlist.title}</h1>
-          {playlist.description && <p className="mt-1 max-w-2xl text-sm text-muted">{playlist.description}</p>}
-          <p className="mt-1 text-sm text-subtle">
-            {formatCount(playlist.itemCount)} {playlist.itemCount === 1 ? "video" : "videos"}
-            {!playlist.isSystem && ` · ${playlist.visibility.toLowerCase()}`}
-            {` · updated ${formatRelativeTime(playlist.updatedAt)}`}
-          </p>
-        </div>
-        {items.length > 0 && items[0] && (
-          <Link href={items[0].isShort ? `/shorts/${items[0].id}` : `/watch/${items[0].id}`} className="dt-btn dt-btn-primary">
-            Play all
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        eyebrow={playlist.isSystem ? "Built-in playlist" : "Playlist"}
+        title={playlist.title}
+        description={playlist.description || undefined}
+        actions={
+          items.length > 0 && items[0] ? (
+            <Link
+              href={items[0].isShort ? `/shorts/${items[0].id}` : `/watch/${items[0].id}`}
+              className="dt-btn dt-btn-primary"
+            >
+              Play all
+            </Link>
+          ) : undefined
+        }
+        className="mb-6"
+      >
+        <p className="text-sm text-subtle">
+          {formatCount(playlist.itemCount)} {playlist.itemCount === 1 ? "video" : "videos"}
+          {!playlist.isSystem && ` · ${playlist.visibility.toLowerCase()}`}
+          {` · updated ${formatRelativeTime(playlist.updatedAt)}`}
+        </p>
+      </PageHeader>
 
       {items.length === 0 ? (
-        <div className="dt-card flex flex-col items-center gap-2 px-6 py-16 text-center">
-          <h2 className="text-lg font-bold">This playlist is empty</h2>
-          <p className="max-w-md text-sm text-muted">
-            {playlist.isSystem
+        <EmptyState
+          icon={<PlaylistIcon size={20} />}
+          title="This playlist is empty"
+          description={
+            playlist.isSystem
               ? "Videos you save appear here."
-              : "Add videos with the Save button on any watch page."}
-          </p>
-          <Link href="/" className="dt-btn dt-btn-secondary">
-            Browse videos
-          </Link>
-        </div>
+              : "Add videos with the Save button on any watch page."
+          }
+          actions={
+            <Link href="/" className="dt-btn dt-btn-secondary">
+              Browse videos
+            </Link>
+          }
+        />
       ) : (
         <PlaylistItems
           playlistId={playlist.id}

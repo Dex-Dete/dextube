@@ -8,6 +8,8 @@
  * Output goes to `storage/test-media/` which is git-ignored.
  *
  * Files produced:
+ *   hd-720p-10s.mp4    1280x720, 10s – a 720p long-form video that can actually
+ *                                      seed a rendition ladder (480p/360p)
  *   landscape-10s.mp4  640x360, 10s  – a normal long-form video
  *   portrait-8s.mp4    360x640, 8s   – qualifies as a Short (9:16, < 3 min)
  *   tiny-2s.mp4        320x180, 2s   – fast fixture for automated tests
@@ -35,6 +37,7 @@ interface Spec {
 }
 
 const SPECS: Spec[] = [
+  { name: "hd-720p-10s.mp4", width: 1280, height: 720, seconds: 10, audio: true, fps: 24 },
   { name: "landscape-10s.mp4", width: 640, height: 360, seconds: 10, audio: true, fps: 24 },
   { name: "portrait-8s.mp4", width: 360, height: 640, seconds: 8, audio: true, fps: 24 },
   { name: "tiny-2s.mp4", width: 320, height: 180, seconds: 2, audio: true, fps: 15 },

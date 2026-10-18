@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { FeedGrid } from "@/components/feed/FeedGrid";
+import { EmptyState, PageHeader, PlaylistCard } from "@/components/ui";
+import { SearchIcon } from "@/components/icons";
 import { getViewerContext } from "@/server/auth/session";
 import { search } from "@/server/services/search";
 import { mediaUrl } from "@/lib/media-url";
@@ -45,6 +47,9 @@ export async function generateMetadata({ searchParams }: ResultsPageProps): Prom
  * Videos are cursor-paginated; matching channels and public playlists are shown
  * above them on the first page. Filters are plain links so results remain
  * shareable, bookmarkable and usable without JavaScript.
+ *
+ * Each result type is its own labelled, counted section rather than one flat
+ * grid, so it is obvious how many of each kind matched.
  */
 export default async function ResultsPage({ searchParams }: ResultsPageProps) {
   const { q, type, duration, sort } = await searchParams;
@@ -81,24 +86,23 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
 
   return (
     <div className="px-4 py-5 sm:px-6">
-      <h1 className="mb-1 text-xl font-bold">Search</h1>
-      <p className="mb-5 text-sm text-muted">
-        {query ? (
-          <>
-            Results for <strong>{query}</strong>
-          </>
-        ) : (
-          "Type a query in the search box above to find videos, channels, tags and playlists."
-        )}
-      </p>
+      <PageHeader
+        eyebrow="Search"
+        title={query || "Search"}
+        description={
+          query
+            ? `Matches for “${query}” across videos, channels and playlists.`
+            : "Type a query in the search box above to find videos, channels, tags and playlists."
+        }
+        className="mb-5"
+      />
 
       {!query ? (
-        <div className="dt-card flex flex-col items-center gap-2 px-6 py-16 text-center">
-          <h2 className="text-lg font-bold">What are you looking for?</h2>
-          <p className="max-w-md text-sm text-muted">
-            Search matches video titles, descriptions, tags and channel names.
-          </p>
-        </div>
+        <EmptyState
+          icon={<SearchIcon size={20} />}
+          title="What are you looking for?"
+          description="Search matches video titles, descriptions, tags and channel names."
+        />
       ) : (
         <>
           {/* ------------------------------------------------- filters */}
@@ -114,17 +118,16 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
           </div>
 
           {totalResults === 0 ? (
-            <div className="dt-card flex flex-col items-center gap-2 px-6 py-16 text-center">
-              <h2 className="text-lg font-bold">No results for “{query}”</h2>
-              <p className="max-w-md text-sm text-muted">
-                Try fewer or different words, or check the spelling. Search only covers publicly visible content.
-              </p>
-            </div>
+            <EmptyState
+              icon={<SearchIcon size={20} />}
+              title={`No results for “${query}”`}
+              description="Try fewer or different words, or check the spelling. Search only covers publicly visible content."
+            />
           ) : (
             <div className="flex flex-col gap-8">
               {results.channels.length > 0 && (
                 <section>
-                  <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-subtle">Channels</h2>
+                  <SectionHeading label="Channels" count={results.channels.length} />
                   <ul className="flex flex-col gap-2">
                     {results.channels.map((channel) => (
                       <li key={channel.id}>
@@ -150,28 +153,22 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
 
               {results.playlists.length > 0 && (
                 <section>
-                  <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-subtle">Playlists</h2>
+                  <SectionHeading label="Playlists" count={results.playlists.length} />
                   <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {results.playlists.map((playlist) => (
-                      <li key={playlist.id} className="dt-card-hover overflow-hidden rounded-xl">
-                        <Link href={`/playlist/${playlist.id}`} className="block">
-                          <div className="dt-aspect-video relative" style={{ background: "var(--dt-surface-2)" }}>
-                            {playlist.coverKey && (
-                              <img src={mediaUrl(playlist.coverKey)!} alt="" className="h-full w-full object-cover" />
-                            )}
-                            <span
-                              className="absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                              style={{ background: "rgba(0,0,0,0.78)", color: "#fff" }}
-                            >
-                              {playlist.itemCount} {playlist.itemCount === 1 ? "video" : "videos"}
-                            </span>
-                          </div>
-                          <div className="p-3">
-                            <p className="truncate font-semibold">{playlist.title}</p>
-                            <p className="truncate text-xs text-subtle">{playlist.channelName}</p>
-                          </div>
-                        </Link>
-                      </li>
+                      <PlaylistCard
+                        key={playlist.id}
+                        playlist={{
+                          id: playlist.id,
+                          title: playlist.title,
+                          coverKey: playlist.coverKey,
+                          itemCount: playlist.itemCount,
+                          // Search only ever returns non-system, public playlists.
+                          isSystem: false,
+                          systemKind: null,
+                        }}
+                        subtitle={`by ${playlist.channelName}`}
+                      />
                     ))}
                   </ul>
                 </section>
@@ -179,7 +176,10 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
 
               {selectedType !== "channel" && selectedType !== "playlist" && (
                 <section>
-                  <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-subtle">Videos</h2>
+                  <SectionHeading
+                    label="Videos"
+                    count={`${results.videos.length}${results.nextCursor ? "+" : ""}`}
+                  />
                   <FeedGrid
                     initialItems={results.videos}
                     initialCursor={results.nextCursor}
@@ -187,10 +187,11 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
                     endpoint={endpoint}
                     limit={20}
                     emptyState={
-                      <div className="dt-card flex flex-col items-center gap-2 px-6 py-12 text-center">
-                        <p className="text-sm font-semibold">No matching videos</p>
-                        <p className="text-sm text-muted">Try the “All” or “Channels” filters.</p>
-                      </div>
+                      <EmptyState
+                        variant="inline"
+                        title="No matching videos"
+                        description="Try the “All” or “Channels” filters."
+                      />
                     }
                   />
                 </section>
@@ -200,6 +201,15 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
         </>
       )}
     </div>
+  );
+}
+
+function SectionHeading({ label, count }: { label: string; count: React.ReactNode }) {
+  return (
+    <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-subtle">
+      {label}
+      <span className="dt-badge tabular-nums">{count}</span>
+    </h2>
   );
 }
 

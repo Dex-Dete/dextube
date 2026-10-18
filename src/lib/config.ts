@@ -10,6 +10,7 @@
 import "server-only";
 import { z } from "zod";
 import { sessionCookiePolicy } from "@/lib/session-cookie";
+import { parseRankingWeights, RANKING_VERSION } from "@/server/recsys/ranking";
 
 const bool = (def: boolean) =>
   z
@@ -77,6 +78,13 @@ const schema = z.object({
   JOB_RUNNER: z.enum(["inline", "external"]).default("inline"),
   WORKER_POLL_MS: int(2000, 250, 60000),
   JOB_MAX_ATTEMPTS: int(3, 1, 10),
+
+  /**
+   * Optional JSON override for the recommender's weights, e.g.
+   * `{"recency":1.2,"engagement":0.5}`. Unknown or non-numeric keys are
+   * ignored and reported at startup rather than taking the feed down.
+   */
+  RANKING_WEIGHTS: z.string().optional(),
 });
 
 export type AppConfig = ReturnType<typeof loadConfig>;
@@ -102,6 +110,15 @@ function loadConfig() {
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n >= 144 && n <= 4320)
     .sort((a, b) => b - a);
+
+  const ranking = parseRankingWeights(env.RANKING_WEIGHTS);
+  if (ranking.ignored.length > 0) {
+    console.warn(
+      `[dextube] RANKING_WEIGHTS ignored ${ranking.ignored.length} entr${
+        ranking.ignored.length === 1 ? "y" : "ies"
+      }: ${ranking.ignored.join(", ")}. Known weights: ${Object.keys(ranking.weights).join(", ")}`,
+    );
+  }
 
   if (isProd && env.SESSION_SECRET.includes("CHANGE_ME")) {
     throw new Error("Refusing to start in production with a placeholder SESSION_SECRET.");
@@ -155,6 +172,16 @@ function loadConfig() {
       processingConcurrency: env.PROCESSING_CONCURRENCY,
       transcodeLadder,
       enableHls: env.ENABLE_HLS,
+    },
+    /**
+     * Recommender configuration. The weights are documented in
+     * `src/server/recsys/ranking.ts`; `version` identifies the formula so a
+     * feed ordering can be reproduced after the defaults change.
+     */
+    recsys: {
+      weights: ranking.weights,
+      weightsIgnored: ranking.ignored,
+      version: RANKING_VERSION,
     },
     email: {
       host: env.SMTP_HOST || null,

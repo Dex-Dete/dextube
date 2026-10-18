@@ -32,8 +32,6 @@ logs/
 
 # Local working notes and machine-generated agent instructions — not part of the
 # published project. `next dev` re-creates AGENTS.md on every machine.
-PROJECT_STATUS.md
-TODO.md
 AGENTS.md
 
 # Editors / OS

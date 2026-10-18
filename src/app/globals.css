@@ -142,7 +142,7 @@
   --shadow-dt-md: var(--dt-shadow-md);
   --shadow-dt-lg: var(--dt-shadow-lg);
 
-  --font-sans: "Inter", "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-inter), "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
 /* ==========================================================================

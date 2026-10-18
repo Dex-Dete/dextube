@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
+import { VideoCardMenu } from "@/components/video/VideoCardMenu";
 import { mediaUrl } from "@/lib/media-url";
 import { countLabel, formatDuration, formatRelativeTime } from "@/lib/format";
 import { LockIcon, ShortsIcon } from "@/components/icons";
@@ -24,6 +25,14 @@ export interface VideoCardProps {
   hideChannel?: boolean;
   /** Optional badge row (Studio uses it to show status). */
   badge?: React.ReactNode;
+  /**
+   * Show the "not interested" / "don't recommend this channel" control.
+   *
+   * Only the ranked home feed turns this on: those are the cards whose position
+   * a preference can actually change. It is off everywhere else so a dismissal
+   * is never offered where it would do nothing.
+   */
+  recommendationControls?: boolean;
 }
 
 /**
@@ -31,9 +40,23 @@ export interface VideoCardProps {
  * client JavaScript required; the thumbnail falls back to a generated gradient
  * when the video has no thumbnail yet.
  */
-export function VideoCard({ video, variant = "grid", hideChannel = false, badge }: VideoCardProps) {
+export function VideoCard({
+  video,
+  variant = "grid",
+  hideChannel = false,
+  badge,
+  recommendationControls = false,
+}: VideoCardProps) {
   const href = video.isShort ? `/shorts/${video.id}` : `/watch/${video.id}`;
   const thumb = mediaUrl(video.thumbnailKey) ?? mediaUrl(video.posterKey ?? null);
+  const menu = recommendationControls ? (
+    <VideoCardMenu
+      videoId={video.id}
+      channelId={video.channel.id}
+      channelName={video.channel.name}
+      align={variant === "grid" ? "top" : "inline"}
+    />
+  ) : null;
 
   if (variant === "list") {
     return (
@@ -56,6 +79,7 @@ export function VideoCard({ video, variant = "grid", hideChannel = false, badge 
           </p>
           {badge}
         </div>
+        {menu}
       </article>
     );
   }
@@ -95,6 +119,7 @@ export function VideoCard({ video, variant = "grid", hideChannel = false, badge 
           </p>
           {badge}
         </div>
+        {menu}
       </div>
     </article>
   );
