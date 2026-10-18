@@ -29,6 +29,8 @@ export interface SessionUser {
   avatarKey: string | null;
   emailVerified: boolean;
   isSuspended: boolean;
+  /** Set by the administrator bootstrap; blocks privileged surfaces until changed. */
+  mustChangePassword: boolean;
   saveWatchHistory: boolean;
   showLikesPublicly: boolean;
   sessionEpoch: number;
@@ -161,6 +163,7 @@ const USER_SELECT = {
   avatarKey: true,
   emailVerifiedAt: true,
   isSuspended: true,
+  mustChangePassword: true,
   saveWatchHistory: true,
   showLikesPublicly: true,
   sessionEpoch: true,
@@ -221,6 +224,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     avatarKey: u.avatarKey,
     emailVerified: Boolean(u.emailVerifiedAt),
     isSuspended: u.isSuspended,
+    mustChangePassword: u.mustChangePassword,
     saveWatchHistory: u.saveWatchHistory,
     showLikesPublicly: u.showLikesPublicly,
     sessionEpoch: u.sessionEpoch,

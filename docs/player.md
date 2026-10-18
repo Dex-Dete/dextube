@@ -18,9 +18,31 @@ The implementation is `src/components/watch/VideoPlayer.tsx`, with the icons in
   JavaScript disabled up to the point of needing controls. The player removes
   `controls` and draws its own bar on top, because the native bar cannot be
   styled or extended consistently across browsers.
-* **Controls**: play/pause, a seek bar, elapsed/total time, mute and volume,
-  playback speed (0.25×–2×), quality, captions, picture-in-picture, fullscreen,
-  and a keyboard-shortcut dialog.
+* **Controls**: play/pause, a seek bar with buffered progress drawn behind it,
+  elapsed/total time (click to switch to time remaining; the choice persists),
+  mute and volume, playback speed (0.25×–2×), quality, captions, autoplay,
+  picture-in-picture, fullscreen, and a keyboard-shortcut dialog.
+* **Buffered progress** is drawn from the element's real `TimeRanges`
+  (`computeBufferedRanges()`), one bar per buffered range, updated on `progress`,
+  `timeupdate`, `seeked` and playback events — not from a timer or an animation
+  frame. A spinner (`role="status"`, visually hidden text for assistive
+  technology) appears while the media is stalled, seeking, or buffering, and is
+  suppressed under `prefers-reduced-motion`.
+* **Captions** are driven by the element's actual `textTracks`. With two or more
+  tracks the menu offers each language plus "Off"; with one it is an on/off
+  toggle; with none the control is absent entirely rather than disabled and
+  unexplained.
+* **Autoplay** is an explicit preference, off by default. When on, a watch page
+  starts the video **muted** — a browser will not allow anything else, and
+  starting with sound unbidden is exactly the behaviour the preference exists to
+  let people opt into. If the browser refuses, the poster and play button simply
+  remain.
+* **Failure is explained, not hidden.** `describeMediaError()` maps the real
+  `MediaError` code (and a genuine dead end: `HAVE_NOTHING` with
+  `NETWORK_NO_SOURCE`) to a specific message, and the retry action reloads the
+  current source with its once-only guards reset so a retry after a mid-playback
+  failure can actually succeed. A quality switch never trips it: swapping `src`
+  reaches `EMPTY`/`LOADING`, never `NO_SOURCE`.
 * **Keyboard**: `k` or `Space` play/pause, `←`/`→` seek 5 s, `j`/`l` seek 10 s,
   `↑`/`↓` volume, `m` mute, `f` fullscreen, `.`/`,` step the speed down and up,
   `0`–`9` jump to a percentage.
@@ -29,7 +51,7 @@ The implementation is `src/components/watch/VideoPlayer.tsx`, with the icons in
   the settings menus are `role="menu"` with `menuitem` / `menuitemradio`
   children; every icon button has an `aria-label`.
 * **Captions** come from the video's `CAPTION` tracks. There are no generated or
-  guessed captions.
+  guessed captions (see the caption bullet above for how the menu is built).
 
 ## 2. Quality switching is manual, and says so
 
@@ -130,6 +152,12 @@ anything this project needs.
 * **Thumbnail-sprite seek previews.** Would require generating and storing sprite
   sheets per video; the time tooltip is the honest minimum.
 * **Captions that are not stored.** Nothing is transcribed or guessed.
+* **An audio-track menu.** The delivery path is a progressive file that carries
+  exactly one audio track, so a selector would have nothing to select. The menu
+  would only become honest once separate audio tracks are actually stored.
+* **Remembered volume and speed.** Only the preferences the player genuinely owns
+  are persisted (time-remaining display, autoplay-next, autoplay): a stored volume
+  that overrides the system mixer is a surprise, not a feature.
 
 ## 7. Tests
 
@@ -144,3 +172,17 @@ anything this project needs.
    offers "Resumed from", with "Start over" rewinding;
 6. a single-rendition video shows non-interactive "Single rendition" text and
    exposes zero `menuitemradio`s.
+
+`tests/e2e/player-extras.spec.ts` covers the additions with a real browser: the
+buffered bar is present, correctly layered behind the seek control and reports a
+non-zero range after playback; the time readout toggles both ways, survives a
+reload and responds to the keyboard; the captions control is **absent** when the
+fixture stores no tracks (an empty menu would be a lie); the quality menu lists
+real renditions with no "Auto"; the autoplay preference persists and never leaves
+the element paused *with sound*; and a player shortcut is not hijacked while the
+user is typing in the site header's search box.
+
+Pure helpers are unit-tested without a browser:
+`tests/unit/player-buffered.test.ts` (`computeBufferedRanges`, `formatClock`) and
+`tests/unit/player-errors.test.ts` (`describeMediaError`, every `MediaError` code
+and network state including unknown values).

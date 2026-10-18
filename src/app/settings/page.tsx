@@ -22,7 +22,12 @@ export const dynamic = "force-dynamic";
  * password (which signs other devices out), active sessions and account
  * deletion. Nothing here is a placeholder.
  */
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
+  const { notice } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/settings");
 
@@ -35,6 +40,20 @@ export default async function SettingsPage() {
       <p className="mt-1 mb-6 text-sm text-muted">
         Signed in as <strong>@{user.username}</strong> · joined {formatDate(user.createdAt)}
       </p>
+
+      {notice === "admin-password" && (
+        <div
+          role="status"
+          className="dt-card mb-4 border-l-4 p-4"
+          style={{ borderLeftColor: "var(--dt-warning)" }}
+        >
+          <p className="text-sm font-semibold">Change your password to use administrator tools</p>
+          <p className="mt-0.5 text-sm text-muted">
+            This account was created by the one-time bootstrap and still carries its bootstrap
+            password. Set a real password below; the administrator area opens once you have.
+          </p>
+        </div>
+      )}
 
       <Section title="Profile" description="How you appear across DEXTube.">
         <ProfileForm

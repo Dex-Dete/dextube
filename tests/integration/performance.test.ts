@@ -35,11 +35,25 @@ const onQuery = (event: Prisma.QueryEvent) => {
 };
 
 /** Runs `fn` and returns the SQL statements Prisma sent while it ran. */
+/**
+ * Prisma dispatches its `query` events asynchronously, so an event belonging to
+ * one call can be delivered while the next call is being measured — which made
+ * the counts in this file non-deterministic (10, 11, 10 for three identical
+ * calls). Draining the queue before *and* after the measured call is what makes
+ * the numbers exact rather than merely indicative.
+ */
+function drainEvents(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 30));
+}
+
 async function statements<T>(fn: () => Promise<T>): Promise<{ result: T; queries: string[] }> {
+  recording = false;
+  await drainEvents();
   captured.length = 0;
   recording = true;
   try {
     const result = await fn();
+    await drainEvents();
     return { result, queries: [...captured] };
   } finally {
     recording = false;

@@ -37,6 +37,12 @@ export interface PlayerRendition {
   height: number | null;
 }
 
+/** One text track as reported by the media element itself. */
+export interface CaptionTrack {
+  label: string;
+  language: string;
+}
+
 export interface VideoPlayerProps {
   videoId: string;
   /** Default progressive source. Null while the video is still processing. */
@@ -84,7 +90,28 @@ const RESUME_MIN_SECONDS = 5;
 /** …and neither is one where they stopped in the closing moments. */
 const RESUME_TAIL_SECONDS = 10;
 const RESUME_TAIL_RATIO = 0.15;
-const AUTOPLAY_PREF_KEY = "dextube-autoplay-next";
+/** Preference: jump to the next video when the current one ends. */
+const AUTOPLAY_NEXT_PREF_KEY = "dextube-autoplay-next";
+/** Preference: try to start a watch page muted when it opens (default off). */
+const AUTOPLAY_PLAY_PREF_KEY = "dextube-player-autoplay";
+/** Preference: the time readout counts down instead of up (default off). */
+const TIME_REMAINING_PREF_KEY = "dextube-player-time-remaining";
+
+/**
+ * A range of already-downloaded media, in seconds. Derived from the media
+ * element's own `TimeRanges` — DEXTube never guesses a buffered range.
+ */
+export interface BufferedRange {
+  start: number;
+  end: number;
+}
+
+/** The subset of `TimeRanges` this module needs; a real one satisfies it. */
+export interface TimeRangesLike {
+  readonly length: number;
+  start(index: number): number;
+  end(index: number): number;
+}
 
 /* ------------------------------------------------- browser-environment stores */
 
@@ -118,29 +145,49 @@ function reducedMotionSnapshot(): boolean {
   return reducedMotionQueryList()?.matches ?? false;
 }
 
-const autoplayListeners = new Set<() => void>();
-function autoplaySubscribe(listener: () => void): () => void {
-  autoplayListeners.add(listener);
-  return () => {
-    autoplayListeners.delete(listener);
+/**
+ * A `useSyncExternalStore` source backed by one boolean in `localStorage`.
+ *
+ * Reads happen through `snapshot` so React hydrates with the safe default and
+ * only adopts the stored value on the client; writes fan out to every mounted
+ * subscriber. Storage access is wrapped because private mode can throw.
+ */
+interface BooleanPreference {
+  subscribe(listener: () => void): () => void;
+  snapshot(): boolean;
+  write(value: boolean): void;
+}
+
+function createBooleanPreference(key: string): BooleanPreference {
+  const listeners = new Set<() => void>();
+  return {
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    snapshot() {
+      try {
+        return window.localStorage.getItem(key) === "true";
+      } catch {
+        return false;
+      }
+    },
+    write(value) {
+      try {
+        window.localStorage.setItem(key, String(value));
+      } catch {
+        /* Private mode — the preference simply does not persist. */
+      }
+      for (const listener of listeners) listener();
+    },
   };
 }
-function autoplaySnapshot(): boolean {
-  try {
-    return window.localStorage.getItem(AUTOPLAY_PREF_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-function writeAutoplayPreference(value: boolean): void {
-  try {
-    window.localStorage.setItem(AUTOPLAY_PREF_KEY, String(value));
-  } catch {
-    /* Private mode — the preference simply does not persist. */
-  }
-  for (const listener of autoplayListeners) listener();
-}
-/** Stable server snapshot: never a capability the server can know about. */
+
+const autoplayNextPreference = createBooleanPreference(AUTOPLAY_NEXT_PREF_KEY);
+const autoplayPlayPreference = createBooleanPreference(AUTOPLAY_PLAY_PREF_KEY);
+const timeRemainingPreference = createBooleanPreference(TIME_REMAINING_PREF_KEY);/** Stable server snapshot: never a capability the server can know about. */
 const falseOnServer = () => false;
 
 type MenuView = "none" | "root" | "speed" | "quality" | "captions";
@@ -159,6 +206,15 @@ type MenuView = "none" | "root" | "speed" | "quality" | "captions";
  *    bitrate engine here and the player does not claim to be one.
  *  * Speed, volume, mute, seek, fullscreen, picture-in-picture, captions and
  *    keyboard shortcuts all act on the media element directly.
+ *  * The seek bar draws a second, decorative bar from the element's real
+ *    `buffered` ranges, and a spinner appears only while the element is
+ *    genuinely stalled (not on a timer).
+ *  * The time readout toggles between elapsed and remaining, and the setting
+ *    persists.
+ *  * Caption languages come from `video.textTracks`, so a language is offered
+ *    only when the browser parsed a track for it.
+ *  * The "Autoplay" preference is honoured only as far as a browser allows on a
+ *    normal navigation: it may start playback *muted*, and never with sound.
  *  * Progress is throttled to one write per 10 seconds, skipped when the
  *    position has barely moved, and flushed with `keepalive` when the page is
  *    hidden or unloaded so a closed tab still saves the resume point.
@@ -194,7 +250,9 @@ export function VideoPlayer({
   const hideTimer = useRef<number | null>(null);
 
   const [activeSrc, setActiveSrc] = useState<string | null>(src);
-  const [qualityLabel, setQualityLabel] = useState<string | null>(null);
+  // The first stored rendition is the one playing, so that is the honest
+  // initial value — the menu must never show a fabricated "Auto".
+  const [qualityLabel, setQualityLabel] = useState<string | null>(() => renditions[0]?.label ?? null);
   const [ready, setReady] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [buffering, setBuffering] = useState(false);
@@ -207,10 +265,11 @@ export function VideoPlayer({
   const [controlsVisible, setControlsVisible] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [bufferedEnd, setBufferedEnd] = useState(0);
+  const [bufferedRanges, setBufferedRanges] = useState<BufferedRange[]>([]);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
-  const [captionsOn, setCaptionsOn] = useState(false);
+  const [captionTracks, setCaptionTracks] = useState<CaptionTrack[]>([]);
+  const [activeCaptionIndex, setActiveCaptionIndex] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [seekPreview, setSeekPreview] = useState<number | null>(null);
@@ -221,7 +280,21 @@ export function VideoPlayer({
     falseOnServer,
   );
   const pipSupported = useSyncExternalStore(noopSubscribe, pipSupportedSnapshot, falseOnServer);
-  const autoplayNext = useSyncExternalStore(autoplaySubscribe, autoplaySnapshot, falseOnServer);
+  const autoplayNext = useSyncExternalStore(
+    autoplayNextPreference.subscribe,
+    autoplayNextPreference.snapshot,
+    falseOnServer,
+  );
+  const autoplayPlayback = useSyncExternalStore(
+    autoplayPlayPreference.subscribe,
+    autoplayPlayPreference.snapshot,
+    falseOnServer,
+  );
+  const showRemaining = useSyncExternalStore(
+    timeRemainingPreference.subscribe,
+    timeRemainingPreference.snapshot,
+    falseOnServer,
+  );
 
   const viewSent = useRef(false);
   const lastSaved = useRef({ at: 0, position: -1 });
@@ -229,9 +302,16 @@ export function VideoPlayer({
   const metadataApplied = useRef(false);
   const pendingSeek = useRef<number | null>(null);
   const wasPlaying = useRef(false);
+  const autoplayAttempted = useRef(false);
 
   const hasQualityMenu = renditions.length > 1;
-  const hasCaptions = captions.length > 0;
+  /**
+   * Captions are real only when the element actually exposes text tracks.
+   * `video.textTracks` — not the props — is the source of truth, so a language
+   * is never offered unless the browser parsed a `<track>` for it.
+   */
+  const hasCaptions = captionTracks.length > 0;
+  const captionsOn = activeCaptionIndex !== null;
 
   /**
    * Reset per-source state when the source changes.
@@ -269,6 +349,70 @@ export function VideoPlayer({
   useEffect(() => {
     viewSent.current = false;
   }, [videoId]);
+
+  /* --------------------------------------------- captions straight from the DOM */
+  /**
+   * The menu must reflect the tracks the browser actually parsed, not the props
+   * that were requested. `video.textTracks` is read on mount and re-read on
+   * `addtrack` / `removetrack` / `change`, so the list appears once a remote
+   * track has loaded and follows a mode change made anywhere else.
+   */
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const tracks = el.textTracks;
+
+    const sync = () => {
+      const next: CaptionTrack[] = [];
+      let active: number | null = null;
+      for (let i = 0; i < tracks.length; i += 1) {
+        const track = tracks[i];
+        const language = (track.language || "").trim();
+        const label = (track.label || "").trim() || language || `Track ${i + 1}`;
+        next.push({ label, language });
+        if (track.mode === "showing" && active === null) active = i;
+      }
+      setCaptionTracks(next);
+      setActiveCaptionIndex(active);
+    };
+
+    sync();
+    tracks.addEventListener("addtrack", sync);
+    tracks.addEventListener("removetrack", sync);
+    tracks.addEventListener("change", sync);
+    return () => {
+      tracks.removeEventListener("addtrack", sync);
+      tracks.removeEventListener("removetrack", sync);
+      tracks.removeEventListener("change", sync);
+    };
+  }, [activeSrc]);
+
+  /* ------------------------------------------------- autoplay-on-open preference */
+  useEffect(() => {
+    autoplayAttempted.current = false;
+  }, [videoId]);
+
+  /**
+   * Honour the persisted "Autoplay" preference, and only in the way a browser
+   * permits on a normal navigation.
+   *
+   * Playback without a user gesture is allowed only while the media is muted, so
+   * that is exactly what happens: the element is muted, `play()` is attempted,
+   * and if it resolves the video keeps playing **muted** — sound is never turned
+   * on automatically. If it rejects (autoplay policy, data saver, no gesture)
+   * nothing happens: the poster and the play button stay, with no error. The
+   * attempt runs once per video, so switching quality cannot restart playback.
+   */
+  useEffect(() => {
+    if (!autoplayPlayback || autoPlay || autoplayAttempted.current) return;
+    const el = videoRef.current;
+    if (!el || !el.paused) return;
+    autoplayAttempted.current = true;
+    el.muted = true;
+    void el.play().catch(() => {
+      /* Not allowed right now — the poster and play button remain. */
+    });
+  }, [autoplayPlayback, autoPlay, videoId]);
 
   /** Advance to the next video, however the caller wired it up. */
   const goNext = useCallback(() => {
@@ -328,15 +472,26 @@ export function VideoPlayer({
     if (!el || !activeSrc) return;
 
     const applyBuffered = () => {
-      if (!Number.isFinite(el.duration)) return;
-      let end = 0;
-      for (let i = 0; i < el.buffered.length; i += 1) {
-        if (el.buffered.start(i) <= el.currentTime + 0.25 && el.buffered.end(i) >= el.currentTime) {
-          end = el.buffered.end(i);
-          break;
-        }
-      }
-      setBufferedEnd(end);
+      setBufferedRanges(computeBufferedRanges(el.buffered, el.duration));
+    };
+
+    /**
+     * A genuine stall, derived from the element's own state rather than a timer:
+     * not enough data to continue while the browser is still loading it. Called
+     * from the media events that can change either value.
+     */
+    const syncLoading = () => {
+      setBuffering(
+        el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA &&
+          el.networkState === HTMLMediaElement.NETWORK_LOADING,
+      );
+    };
+
+    const fail = (code: number | null) => {
+      setError(describeMediaError(code, el.networkState));
+      setBuffering(false);
+      setReady(true);
+      setSwitching(false);
     };
 
     const onLoadedMetadata = () => {
@@ -351,7 +506,7 @@ export function VideoPlayer({
       setDuration(el.duration);
       setReady(true);
       setSwitching(false);
-      setBufferedEnd(0);
+      setBufferedRanges([]);
 
       // A quality switch carries the playhead across files.
       if (pendingSeek.current !== null) {
@@ -379,13 +534,14 @@ export function VideoPlayer({
       resumeApplied.current = true;
     };
 
-    const onError = () => {
-      setError(
-        "This video could not be played. The file may be missing, or the format is not supported by your browser.",
-      );
-      setReady(true);
-      setSwitching(false);
-    };
+    /**
+     * The media element has failed, or has settled with nothing to play
+     * (`HAVE_NOTHING` + `NETWORK_NO_SOURCE`). The message is chosen from the
+     * real `MediaError` code so a decode/format failure is not reported as a
+     * network fault. A quality switch never reaches this path: swapping `src`
+     * leaves the element in `NETWORK_EMPTY`/`LOADING`, not `NO_SOURCE`.
+     */
+    const onError = () => fail(el.error?.code ?? null);
     const onPlay = () => {
       setPaused(false);
       setEnded(false);
@@ -396,16 +552,35 @@ export function VideoPlayer({
       saveProgress(true);
     };
     const onWaiting = () => setBuffering(true);
+    const onStalled = () => setBuffering(true);
+    const onSeeking = () => setBuffering(true);
+    // A seek inside already-buffered data completes without another `canplay`,
+    // so clear the indicator here when the data is in fact present.
+    const onSeeked = () => {
+      applyBuffered();
+      if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) setBuffering(false);
+    };
     const onPlaying = () => {
       setBuffering(false);
       applyBuffered();
     };
+    const onCanPlay = () => setBuffering(false);
     const onTime = () => {
       setCurrentTime(el.currentTime);
       if (el.currentTime >= VIEW_AFTER_SECONDS) recordView();
       saveProgress(false);
+      applyBuffered();
     };
-    const onProgress = () => applyBuffered();
+    const onProgress = () => {
+      applyBuffered();
+      syncLoading();
+    };
+    const onEmptied = () => {
+      applyBuffered();
+      if (el.readyState === HTMLMediaElement.HAVE_NOTHING && el.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+        fail(null);
+      }
+    };
     const onDuration = () => setDuration(el.duration);
     const onVolume = () => {
       setVolume(el.volume);
@@ -424,9 +599,14 @@ export function VideoPlayer({
     el.addEventListener("play", onPlay);
     el.addEventListener("pause", onPause);
     el.addEventListener("waiting", onWaiting);
+    el.addEventListener("stalled", onStalled);
+    el.addEventListener("seeking", onSeeking);
+    el.addEventListener("seeked", onSeeked);
     el.addEventListener("playing", onPlaying);
+    el.addEventListener("canplay", onCanPlay);
     el.addEventListener("timeupdate", onTime);
     el.addEventListener("progress", onProgress);
+    el.addEventListener("emptied", onEmptied);
     el.addEventListener("volumechange", onVolume);
     el.addEventListener("ended", onEndedEvent);
 
@@ -439,6 +619,8 @@ export function VideoPlayer({
      */
     if (el.readyState >= HTMLMediaElement.HAVE_METADATA) onLoadedMetadata();
     else if (el.error) onError();
+    else if (el.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) fail(null);
+    else applyBuffered();
 
     return () => {
       el.removeEventListener("loadedmetadata", onLoadedMetadata);
@@ -447,9 +629,14 @@ export function VideoPlayer({
       el.removeEventListener("play", onPlay);
       el.removeEventListener("pause", onPause);
       el.removeEventListener("waiting", onWaiting);
+      el.removeEventListener("stalled", onStalled);
+      el.removeEventListener("seeking", onSeeking);
+      el.removeEventListener("seeked", onSeeked);
       el.removeEventListener("playing", onPlaying);
+      el.removeEventListener("canplay", onCanPlay);
       el.removeEventListener("timeupdate", onTime);
       el.removeEventListener("progress", onProgress);
+      el.removeEventListener("emptied", onEmptied);
       el.removeEventListener("volumechange", onVolume);
       el.removeEventListener("ended", onEndedEvent);
     };
@@ -578,15 +765,34 @@ export function VideoPlayer({
     else el.pause();
   }, []);
 
+  /**
+   * Show a specific caption track and disable every other one. `null` turns
+   * captions off. Modes are written on the real `TextTrack` objects, and the
+   * `change` listener on `textTracks` reflects the result back into the menu.
+   */
+  const showCaption = useCallback((index: number | null) => {
+    const el = videoRef.current;
+    if (!el) return;
+    for (let i = 0; i < el.textTracks.length; i += 1) {
+      el.textTracks[i].mode = index !== null && i === index ? "showing" : "disabled";
+    }
+  }, []);
+
+  /** A menu selection changes the track and closes the menu. */
+  const selectCaption = useCallback(
+    (index: number | null) => {
+      showCaption(index);
+      setMenu("none");
+    },
+    [showCaption],
+  );
+
+  /** The one-track case: a plain on/off toggle over the sole track. */
   const toggleCaptions = useCallback(() => {
     const el = videoRef.current;
     if (!el || el.textTracks.length === 0) return;
-    const next = !captionsOn;
-    for (let i = 0; i < el.textTracks.length; i += 1) {
-      el.textTracks[i].mode = next ? (i === 0 ? "showing" : "hidden") : "disabled";
-    }
-    setCaptionsOn(next);
-  }, [captionsOn]);
+    showCaption(captionsOn ? null : activeCaptionIndex ?? 0);
+  }, [activeCaptionIndex, captionsOn, showCaption]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -685,24 +891,35 @@ export function VideoPlayer({
   }, [activeSrc]);
 
   const setAutoplay = useCallback((value: boolean) => {
-    writeAutoplayPreference(value);
+    autoplayNextPreference.write(value);
     setMenu("none");
   }, []);
 
   const retry = useCallback(() => {
     const el = videoRef.current;
     if (!el) return;
+    // A retry is a fresh load of the same source, so the once-per-source guards
+    // must be cleared or `loadedmetadata` would be ignored and the spinner would
+    // never resolve. The quality choice is untouched.
+    metadataApplied.current = false;
+    resumeApplied.current = false;
     setError(null);
     setReady(false);
+    setBuffering(false);
+    setBufferedRanges([]);
     el.load();
   }, []);
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const bufferedPct = duration > 0 ? Math.min(100, (bufferedEnd / duration) * 100) : 0;
+  const remaining = duration > 0 ? Math.max(0, duration - currentTime) : 0;
+  /**
+   * Only the played portion is drawn on the range input itself. The buffered
+   * ranges are a separate, decorative layer so the two can never overwrite each
+   * other — and are drawn behind the input, which keeps the thumb draggable.
+   */
   const seekTrackBackground = useMemo(
-    () =>
-      `linear-gradient(to right, var(--dt-brand) 0% ${progressPct}%, rgba(255,255,255,0.42) ${progressPct}% ${bufferedPct}%, rgba(255,255,255,0.18) ${bufferedPct}% 100%)`,
-    [bufferedPct, progressPct],
+    () => `linear-gradient(to right, var(--dt-brand) 0% ${progressPct}%, transparent ${progressPct}% 100%)`,
+    [progressPct],
   );
 
   /* -------------------------------------------------------- processing state */
@@ -763,11 +980,15 @@ export function VideoPlayer({
         ))}
       </video>
 
-      {/* Loading / buffering */}
+      {/* Loading / buffering: shown while stalled, not on a timer */}
       {(!ready || buffering || switching) && !error && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center" style={{ color: "#fff" }}>
-          <span className="grid h-12 w-12 place-items-center rounded-full" style={{ background: "rgba(0,0,0,0.55)" }}>
-            <SpinnerIcon size={26} />
+          <span
+            aria-hidden="true"
+            className="grid h-12 w-12 place-items-center rounded-full"
+            style={{ background: "rgba(0,0,0,0.55)" }}
+          >
+            <SpinnerIcon size={26} style={reduceMotion ? { animation: "none" } : undefined} />
           </span>
           <span className="sr-only" role="status">
             {switching ? "Switching quality" : "Loading video"}
@@ -872,6 +1093,31 @@ export function VideoPlayer({
       >
         {/* Seek bar — buffered and played ranges, keyboard operable */}
         <div className="relative flex items-center">
+          {/*
+            Buffered ranges, drawn from `video.buffered` as a decorative layer
+            behind the range input. It is `aria-hidden` and `pointer-events-none`
+            so it can never intercept a drag, and it renders nothing (zero-width)
+            before the browser reports any ranges.
+          */}
+          <div
+            aria-hidden="true"
+            data-testid="buffered-bar"
+            className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full"
+            style={{ background: "rgba(255,255,255,0.18)" }}
+          >
+            {bufferedRanges.map((range, index) => (
+              <span
+                key={`${range.start}-${index}`}
+                data-testid="buffered-range"
+                className="absolute inset-y-0"
+                style={{
+                  left: `${duration > 0 ? (range.start / duration) * 100 : 0}%`,
+                  width: `${duration > 0 ? ((range.end - range.start) / duration) * 100 : 0}%`,
+                  background: "rgba(255,255,255,0.42)",
+                }}
+              />
+            ))}
+          </div>
           <input
             type="range"
             min={0}
@@ -893,13 +1139,13 @@ export function VideoPlayer({
             onMouseLeave={() => setSeekPreview(null)}
             aria-label="Seek"
             aria-valuetext={`${formatClock(currentTime)} of ${formatClock(duration)}`}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/70 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            className="relative h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/70 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
             style={{ background: seekTrackBackground }}
           />
           {seekPreview !== null ? (
             <span
               role="presentation"
-              className="pointer-events-none absolute -top-7 rounded px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
+              className="pointer-events-none absolute -top-7 z-20 rounded px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
               style={{ background: "rgba(0,0,0,0.85)", color: "#fff", left: `calc(${duration > 0 ? (seekPreview / duration) * 100 : 0}% - 18px)` }}
             >
               {formatClock(seekPreview)}
@@ -943,8 +1189,22 @@ export function VideoPlayer({
             />
           </div>
 
-          <span className="ml-1 text-[11px] font-medium tabular-nums sm:text-xs">
-            {formatClock(currentTime)} / {formatClock(duration)}
+          <button
+            type="button"
+            data-testid="time-toggle"
+            onClick={() => timeRemainingPreference.write(!showRemaining)}
+            aria-label={
+              showRemaining
+                ? `Remaining time ${formatClock(remaining)}. Show elapsed time`
+                : `Elapsed time ${formatClock(currentTime)}. Show remaining time`
+            }
+            title={showRemaining ? "Show elapsed time" : "Show remaining time"}
+            className="ml-1 rounded px-1 text-[11px] font-medium tabular-nums outline-none hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/70 sm:text-xs"
+          >
+            {showRemaining ? `-${formatClock(remaining)}` : formatClock(currentTime)}
+          </button>
+          <span className="text-[11px] font-medium tabular-nums sm:text-xs" aria-hidden="true">
+            / {formatClock(duration)}
           </span>
 
           <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
@@ -1037,8 +1297,8 @@ export function VideoPlayer({
               {hasCaptions ? (
                 <MenuRow
                   icon={<CaptionsIcon size={17} />}
-                  label="Subtitles"
-                  value={captionsOn ? captions[0]?.label ?? "On" : "Off"}
+                  label="Captions"
+                  value={captionsOn ? captionTracks[activeCaptionIndex ?? 0]?.label ?? "On" : "Off"}
                   onClick={() => setMenu("captions")}
                 />
               ) : null}
@@ -1048,6 +1308,12 @@ export function VideoPlayer({
                 label="Autoplay next"
                 checked={autoplayNext}
                 onClick={() => setAutoplay(!autoplayNext)}
+              />
+              <MenuToggleRow
+                icon={<PlayIcon size={17} />}
+                label="Autoplay"
+                checked={autoplayPlayback}
+                onClick={() => autoplayPlayPreference.write(!autoplayPlayback)}
               />
             </>
           ) : null}
@@ -1086,23 +1352,13 @@ export function VideoPlayer({
 
           {menu === "captions" ? (
             <>
-              <MenuRadioRow
-                label="Off"
-                checked={!captionsOn}
-                onClick={() => {
-                  if (captionsOn) toggleCaptions();
-                  setMenu("none");
-                }}
-              />
-              {captions.map((caption) => (
+              <MenuRadioRow label="Off" checked={activeCaptionIndex === null} onClick={() => selectCaption(null)} />
+              {captionTracks.map((track, index) => (
                 <MenuRadioRow
-                  key={caption.src}
-                  label={caption.label}
-                  checked={captionsOn && caption.label === captions[0]?.label}
-                  onClick={() => {
-                    if (!captionsOn) toggleCaptions();
-                    setMenu("none");
-                  }}
+                  key={`${track.label}-${index}`}
+                  label={track.label}
+                  checked={activeCaptionIndex === index}
+                  onClick={() => selectCaption(index)}
                 />
               ))}
             </>
@@ -1138,7 +1394,7 @@ export function VideoPlayer({
             {hasCaptions ? (
               <>
                 <dt className="font-mono">c</dt>
-                <dd>Subtitles</dd>
+                <dd>Captions</dd>
               </>
             ) : null}
             <dt className="font-mono">, / .</dt>
@@ -1151,7 +1407,8 @@ export function VideoPlayer({
 
       <p className="sr-only">
         Use space or K to play and pause, J and L to seek ten seconds, the arrow keys to seek five seconds and adjust
-        volume, M to mute, F for fullscreen, and the number keys to jump through the video.
+        volume, M to mute, F for fullscreen, and the number keys to jump through the video. The time readout is a
+        button that switches between elapsed and remaining time.
       </p>
     </div>
   );
@@ -1281,7 +1538,7 @@ function MenuToggleRow({
 }
 
 /** mm:ss / h:mm:ss. */
-function formatClock(seconds: number): string {
+export function formatClock(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const total = Math.floor(seconds);
   const hours = Math.floor(total / 3600);
@@ -1289,4 +1546,69 @@ function formatClock(seconds: number): string {
   const secs = total % 60;
   const mm = hours > 0 ? String(minutes).padStart(2, "0") : String(minutes);
   return `${hours > 0 ? `${hours}:` : ""}${mm}:${String(secs).padStart(2, "0")}`;
+}
+
+/**
+ * Turn buffered ranges into positioned ranges between `0` and `duration`.
+ *
+ * Pure and defensive: a real `Video.buffered` (`TimeRanges`) is accepted, as is
+ * a test double. Out-of-range values are clamped, empty/backwards ranges are
+ * dropped, and a missing duration yields an empty list — so a caller never has
+ * to guard, and the bar simply renders nothing when the browser reports
+ * nothing. Reading the values never mutates the media element.
+ */
+export function computeBufferedRanges(
+  buffered: TimeRangesLike | null | undefined,
+  duration: number,
+): BufferedRange[] {
+  if (!buffered || buffered.length <= 0 || !Number.isFinite(duration) || duration <= 0) return [];
+  const ranges: BufferedRange[] = [];
+  for (let i = 0; i < buffered.length; i += 1) {
+    const rawStart = buffered.start(i);
+    const rawEnd = buffered.end(i);
+    if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd)) continue;
+    const start = Math.max(0, Math.min(rawStart, duration));
+    const end = Math.max(0, Math.min(rawEnd, duration));
+    if (end <= start) continue;
+    ranges.push({ start, end });
+  }
+  return ranges;
+}
+
+/**
+ * A viewer-facing explanation of a playback failure, chosen from the media
+ * element's own state rather than a guess.
+ *
+ * The distinction the UI needs is *what failed*: a decode/format problem (this
+ * source cannot be played here) is a different message from a transport problem
+ * (the network failed), because the recovery differs. `networkState` is only
+ * consulted when there is no `MediaError` — `NETWORK_NO_SOURCE` is the dead end
+ * where the element settled with nothing playable. Unknown codes fall back to a
+ * neutral, non-committal message rather than inventing a cause.
+ */
+export function describeMediaError(
+  mediaErrorCode: number | null | undefined,
+  networkState: number | null | undefined,
+): string {
+  switch (mediaErrorCode) {
+    case 1: // MEDIA_ERR_ABORTED
+      return "Loading was interrupted before the video could play. Check your connection, then retry.";
+    case 2: // MEDIA_ERR_NETWORK
+      return "The network failed while loading this video. Check your connection, then retry.";
+    case 3: // MEDIA_ERR_DECODE
+      return "This video could not be decoded by your browser. The file may be damaged.";
+    case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+      return "This source could not be played. The file may be missing, or your browser does not support its format.";
+    default:
+      break;
+  }
+  if (networkState === 3) {
+    // NETWORK_NO_SOURCE — the element found nothing it could load.
+    return "This source could not be played. The file may be missing, or your browser does not support its format.";
+  }
+  if (networkState === 2) {
+    // NETWORK_LOADING with no MediaError — treat as a transport failure.
+    return "The network failed while loading this video. Check your connection, then retry.";
+  }
+  return "This video could not be played. Retry to load it again.";
 }

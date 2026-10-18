@@ -85,6 +85,62 @@ const schema = z.object({
    * ignored and reported at startup rather than taking the feed down.
    */
   RANKING_WEIGHTS: z.string().optional(),
+
+  /**
+   * Which kind of deployment this process is. Deliberately separate from
+   * `NODE_ENV`: `next start` forces NODE_ENV=production even for a throwaway
+   * instance, so destructive helpers and the administrator bootstrap key off
+   * this value instead. "isolated-test" is the only value that unlocks them.
+   */
+  DEXTUBE_ENV: z.enum(["development", "isolated-test", "production"]).default("development"),
+
+  /** One-time initial administrator (see `src/server/services/admin-bootstrap.ts`). */
+  ADMIN_BOOTSTRAP_ENABLED: bool(false),
+  ADMIN_BOOTSTRAP_USERNAME: z.string().min(1).default("admin"),
+  ADMIN_BOOTSTRAP_EMAIL: z.string().min(3).default("admin@admin.com"),
+  /**
+   * Whether the created administrator must change its bootstrap password before
+   * it can use administrator tools.
+   *
+   * Default `true` (the safe default). The development instance sets it to
+   * `false` so the operator account can actually be used straight away; an
+   * account created that way still carries `mustChangePassword`, which the
+   * administrator area shows as a warning instead of a locked door.
+   */
+  ADMIN_BOOTSTRAP_REQUIRE_PASSWORD_CHANGE: bool(true),
+  /** Never logged. Required once bootstrap is enabled anywhere but isolated test. */
+  ADMIN_BOOTSTRAP_PASSWORD: z.string().optional(),
+
+  /**
+   * What the isolated test environment is *expected* to point at. `scripts/isolated-reset.ts`
+   * refuses to delete anything until the live DATABASE_URL and MEDIA_ROOT match
+   * these values, so a mis-set .env can never reach the development data.
+   */
+  ISOLATED_DATABASE_NAME: z.string().default("dextube_isolated_test"),
+  ISOLATED_MEDIA_ROOT: z.string().default("./storage/isolated-test/media"),
+
+  /**
+   * Authorized channel/playlist migration. `YOUTUBE_API_KEY` enables the
+   * official Data API v3; without it only the public channel feed (metadata,
+   * never media) is available.
+   */
+  YOUTUBE_API_KEY: z.string().optional(),
+  CREATOR_EXPORT_ROOT: z.string().default("./storage/creator-exports"),
+  IMPORT_MAX_ITEMS: int(500, 1, 10_000),
+  IMPORT_MAX_CONCURRENCY: int(4, 1, 8),
+  IMPORT_HTTP_TIMEOUT_MS: int(15_000, 1_000, 60_000),
+  /**
+   * Ceiling on a single response body, enforced while it is being read.
+   *
+   * It has to be generous enough for the largest document DEXTube legitimately
+   * reads: a channel's `/@handle` page is around 1.5 MB, and the canonical link
+   * that identifies the channel sits near the *end* of it, so a partial read is
+   * not an option. It stays a hard, bounded ceiling rather than "read it all".
+   */
+  IMPORT_MAX_RESPONSE_BYTES: int(4 * 1024 * 1024, 1_024, 16 * 1024 * 1024),
+
+  /** Refuse media imports once the storage tree exceeds this. */
+  STORAGE_QUOTA_BYTES: int(50 * 1024 * 1024 * 1024, 1024 * 1024, 1024 * 1024 * 1024 * 1024),
 });
 
 export type AppConfig = ReturnType<typeof loadConfig>;
@@ -103,6 +159,7 @@ function loadConfig() {
   const env = parsed.data;
 
   const isProd = env.NODE_ENV === "production";
+  const isIsolatedTest = env.DEXTUBE_ENV === "isolated-test";
   const appUrl = env.APP_URL.replace(/\/+$/, "");
   const cookiePolicy = sessionCookiePolicy(appUrl, env.SESSION_COOKIE_SECURE);
   const transcodeLadder = env.TRANSCODE_LADDER.trim()
@@ -135,10 +192,39 @@ function loadConfig() {
     );
   }
 
+  // --- Administrator bootstrap safety ---------------------------------------
+  // Three independent refusals, because getting this wrong hands out an admin
+  // account: it is never allowed in production, it needs an explicit password
+  // off isolated test, and the famously-weak "admin" password is only tolerated
+  // in throwaway environments.
+  if (env.ADMIN_BOOTSTRAP_ENABLED && env.DEXTUBE_ENV === "production") {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_ENABLED must never be true when DEXTUBE_ENV=production. " +
+        "Create the first administrator through the setup flow instead.",
+    );
+  }
+  if (env.ADMIN_BOOTSTRAP_ENABLED && !isIsolatedTest && !env.ADMIN_BOOTSTRAP_PASSWORD) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_ENABLED requires ADMIN_BOOTSTRAP_PASSWORD unless DEXTUBE_ENV=isolated-test " +
+        "(where the documented throwaway password may be used).",
+    );
+  }
+  if (env.ADMIN_BOOTSTRAP_PASSWORD === "admin" && !isIsolatedTest) {
+    console.warn(
+      "[dextube] Bootstrapping with the well-known password \"admin\". This is only acceptable " +
+        "on a throwaway local instance: the account is marked must-change-password and the " +
+        "credential must never be published.",
+    );
+  }
+
   return {
     nodeEnv: env.NODE_ENV,
     isProd,
     isTest: env.NODE_ENV === "test",
+    /** "development" | "isolated-test" | "production" — see the schema comment. */
+    environment: env.DEXTUBE_ENV,
+    /** True only for the throwaway environment that destructive helpers may touch. */
+    isIsolatedTest,
     appUrl,
     bindHost: env.BIND_HOST,
     port: env.PORT,
@@ -204,6 +290,39 @@ function loadConfig() {
       runner: env.JOB_RUNNER,
       pollMs: env.WORKER_POLL_MS,
       maxAttempts: env.JOB_MAX_ATTEMPTS,
+    },
+    adminBootstrap: {
+      /** Env switch; the database switch is checked at run time as well. */
+      enabled: env.ADMIN_BOOTSTRAP_ENABLED,
+      username: env.ADMIN_BOOTSTRAP_USERNAME,
+      email: env.ADMIN_BOOTSTRAP_EMAIL,
+      /** Never logged, never returned by an API. */
+      password: env.ADMIN_BOOTSTRAP_PASSWORD ?? null,
+      /**
+       * Whether the created administrator must change its bootstrap password
+       * before the administrator tools open. `false` still records the fact —
+       * the account keeps `mustChangePassword`, and the administrator area
+       * shows it as a warning — but does not lock the operator out.
+       */
+      requirePasswordChange: env.ADMIN_BOOTSTRAP_REQUIRE_PASSWORD_CHANGE,
+      /**
+       * The whole feature is refused in production, so this is only ever true
+       * for a local instance that a human is looking at.
+       */
+      permitted: env.ADMIN_BOOTSTRAP_ENABLED && !isProd,
+    },
+    isolated: {
+      expectedDatabaseName: env.ISOLATED_DATABASE_NAME,
+      expectedMediaRoot: env.ISOLATED_MEDIA_ROOT,
+    },
+    imports: {
+      youtubeApiKey: env.YOUTUBE_API_KEY ?? null,
+      creatorExportRoot: env.CREATOR_EXPORT_ROOT,
+      maxItems: env.IMPORT_MAX_ITEMS,
+      maxConcurrency: env.IMPORT_MAX_CONCURRENCY,
+      httpTimeoutMs: env.IMPORT_HTTP_TIMEOUT_MS,
+      maxResponseBytes: env.IMPORT_MAX_RESPONSE_BYTES,
+      storageQuotaBytes: env.STORAGE_QUOTA_BYTES,
     },
   };
 }

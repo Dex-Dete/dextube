@@ -9,7 +9,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { getConfig } from "@/lib/config";
-import { AppError, conflict, forbidden, notFound } from "@/lib/errors";
+import { AppError, conflict, notFound } from "@/lib/errors";
 import { hashPassword, needsRehash, verifyPassword } from "@/server/auth/password";
 import { revokeAllSessions } from "@/server/auth/session";
 import { normalizeEmail, normalizeText } from "@/lib/validation";
@@ -289,7 +289,10 @@ export async function authenticate(identifier: string, password: string): Promis
 
   const valid = await verifyPassword(user.passwordHash, password);
   if (!valid) return null;
-  if (user.isSuspended) throw forbidden("This account is suspended.");
+  // A suspended account is refused exactly like a wrong password. The caller
+  // then applies its single "incorrect username or password" message, so sign-in
+  // cannot be used to discover that an account exists and is suspended.
+  if (user.isSuspended) return null;
 
   // Transparent upgrade when hashing parameters change.
   if (needsRehash(user.passwordHash)) {
@@ -347,7 +350,12 @@ export async function changePassword(userId: string, currentPassword: string, ne
   }
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: await hashPassword(newPassword) },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      // A self-chosen password satisfies the bootstrap "must change before use"
+      // requirement, so the privileged surfaces unlock.
+      mustChangePassword: false,
+    },
   });
   // Changing a password signs every device out.
   await revokeAllSessions(userId);
@@ -367,6 +375,8 @@ export async function resetPasswordWithToken(rawToken: string, newPassword: stri
       passwordHash: await hashPassword(newPassword),
       // A reset also proves control of the mailbox.
       emailVerifiedAt: new Date(),
+      // A reset is a real password change, so it clears the bootstrap flag too.
+      mustChangePassword: false,
     },
   });
   await revokeAllSessions(userId);

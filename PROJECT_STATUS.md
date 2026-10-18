@@ -4,7 +4,27 @@
 > completed work, exact test results, known bugs, and the exact next action.
 > Companion file: [`TODO.md`](./TODO.md).
 
-_Last updated: 2026-10-18 (session 4)_
+_Last updated: 2026-10-18 (session 5)_
+
+## Session 5 — admin/import verification
+
+The local development database still contains the deliberately configured
+`admin` account and the ten MrBeast metadata entries. No destructive reset was
+run against it. `/admin` and every admin API remain server-side role-gated; a
+logged-in admin can use the import console.
+
+The import console now shows persisted item progress for each source and exact
+import storage usage/quota. Public YouTube imports remain metadata-only by
+design: no API-key bypass, scraping, ripping or unauthorized media download was
+added. Authorized creator exports continue to use the real media-copy path.
+
+Verified in this session: `npm run typecheck`, targeted ESLint, and `npm test`
+(25 files; 207 passed, 5 explicitly skipped because the development database
+already has the real admin; the isolated admin-bootstrap command is the clean
+coverage path). The live service was rebuilt and restarted after the
+progress-panel edit; `/api/ready` returned 200. Focused Playwright admin
+coverage passed 3/3, including storage accounting, source progress and all ten
+imported entries.
 
 ---
 

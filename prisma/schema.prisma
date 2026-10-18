@@ -102,62 +102,67 @@ enum ListVisibility {
 // ---------------------------------------------------------------------------
 
 model User {
-  id             String    @id @default(cuid())
-  username       String    @unique
-  displayName    String
-  email          String    @unique
-  emailNormalized String   @unique
-  passwordHash   String
-  role           UserRole  @default(USER)
-  emailVerifiedAt DateTime?
-  avatarKey      String?
-  bio            String?   @db.Text
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  displayName        String
+  email              String    @unique
+  emailNormalized    String    @unique
+  passwordHash       String
+  role               UserRole  @default(USER)
+  emailVerifiedAt    DateTime?
+  avatarKey          String?
+  bio                String?   @db.Text
   /// Session epoch: bumping this invalidates every existing session token.
-  sessionEpoch   Int       @default(0)
+  sessionEpoch       Int       @default(0)
   /// Privacy: when false, watch history is not recorded/persisted.
-  saveWatchHistory Boolean @default(true)
+  saveWatchHistory   Boolean   @default(true)
   /// Privacy: when false, other users cannot see what this user liked.
-  showLikesPublicly Boolean @default(true)
-  isSuspended    Boolean   @default(false)
-  suspendedReason String?
-  deletedAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  showLikesPublicly  Boolean   @default(true)
+  isSuspended        Boolean   @default(false)
+  suspendedReason    String?
+  /// Set by the administrator bootstrap. The account can sign in, but every
+  /// privileged surface refuses it until the password is changed.
+  mustChangePassword Boolean   @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  sessions      Session[]
-  tokens        Token[]
-  channel       Channel?
-  comments      Comment[]
-  commentLikes  CommentLike[]
-  reactions     VideoReaction[]
-  subscriptions Subscription[]
-  watchProgress WatchProgress[]
-  history       WatchHistory[]
-  notifications Notification[] @relation("NotificationRecipient")
-  actorNotifications Notification[] @relation("NotificationActor")
-  interests     UserInterest[]
-  uploads       Upload[]
-  reports       ContentReport[]
-  commentReports CommentReport[]
-  videoFeedback VideoFeedback[]
-  hiddenChannels HiddenChannel[]
-  tracks        Track[]
+  sessions           Session[]
+  tokens             Token[]
+  channel            Channel?
+  comments           Comment[]
+  commentLikes       CommentLike[]
+  reactions          VideoReaction[]
+  subscriptions      Subscription[]
+  watchProgress      WatchProgress[]
+  history            WatchHistory[]
+  notifications      Notification[]  @relation("NotificationRecipient")
+  actorNotifications Notification[]  @relation("NotificationActor")
+  interests          UserInterest[]
+  uploads            Upload[]
+  reports            ContentReport[]
+  commentReports     CommentReport[]
+  videoFeedback      VideoFeedback[]
+  hiddenChannels     HiddenChannel[]
+  tracks             Track[]
+  auditLogs          AdminAuditLog[]
+  importSources      ImportSource[]
 
   @@index([createdAt])
   @@map("users")
 }
 
 model Session {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String
   /// SHA-256 hash of the opaque session token. The raw token only ever lives
   /// in the user's httpOnly cookie.
-  tokenHash  String   @unique
-  epoch      Int      @default(0)
+  tokenHash  String    @unique
+  epoch      Int       @default(0)
   userAgent  String?
   ip         String?
-  createdAt  DateTime @default(now())
-  lastSeenAt DateTime @default(now())
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
   expiresAt  DateTime
   revokedAt  DateTime?
 
@@ -213,7 +218,7 @@ model Channel {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner         User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   videos        Video[]
   playlists     Playlist[]
   subscriptions Subscription[]
@@ -274,41 +279,41 @@ model Upload {
 }
 
 model Video {
-  id          String      @id @default(cuid())
-  channelId   String
-  uploaderId  String
-  title       String
-  description String      @default("") @db.Text
-  visibility  Visibility  @default(PRIVATE)
-  status      VideoStatus @default(DRAFT)
-  isShort     Boolean     @default(false)
-  durationSec Float       @default(0)
-  width       Int?
-  height      Int?
-  category    String?
-  tags        String[]    @default([])
-  language    String?
-  thumbnailKey     String?
-  posterKey        String?
-  playbackKey      String?
-  hlsKey           String?
-  originalKey      String?
-  sourceFilename   String?
-  sizeBytes        BigInt?
-  mimeType         String?
-  allowComments    Boolean   @default(true)
-  madeForKids      Boolean   @default(false)
-  viewCount        Int       @default(0)
-  likeCount        Int       @default(0)
-  dislikeCount     Int       @default(0)
-  commentCount     Int       @default(0)
-  processingError  String?   @db.Text
-  publishedAt      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
+  id              String      @id @default(cuid())
+  channelId       String
+  uploaderId      String
+  title           String
+  description     String      @default("") @db.Text
+  visibility      Visibility  @default(PRIVATE)
+  status          VideoStatus @default(DRAFT)
+  isShort         Boolean     @default(false)
+  durationSec     Float       @default(0)
+  width           Int?
+  height          Int?
+  category        String?
+  tags            String[]    @default([])
+  language        String?
+  thumbnailKey    String?
+  posterKey       String?
+  playbackKey     String?
+  hlsKey          String?
+  originalKey     String?
+  sourceFilename  String?
+  sizeBytes       BigInt?
+  mimeType        String?
+  allowComments   Boolean     @default(true)
+  madeForKids     Boolean     @default(false)
+  viewCount       Int         @default(0)
+  likeCount       Int         @default(0)
+  dislikeCount    Int         @default(0)
+  commentCount    Int         @default(0)
+  processingError String?     @db.Text
+  publishedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
 
-  channel       Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel       Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
   assets        VideoAsset[]
   comments      Comment[]
   reactions     VideoReaction[]
@@ -334,17 +339,17 @@ model Video {
 }
 
 model VideoAsset {
-  id           String    @id @default(cuid())
-  videoId      String
-  kind         AssetKind
-  label        String?
-  storageKey   String
-  mimeType     String
-  width        Int?
-  height       Int?
-  bitrateKbps  Int?
-  sizeBytes    BigInt?
-  createdAt    DateTime  @default(now())
+  id          String    @id @default(cuid())
+  videoId     String
+  kind        AssetKind
+  label       String?
+  storageKey  String
+  mimeType    String
+  width       Int?
+  height      Int?
+  bitrateKbps Int?
+  sizeBytes   BigInt?
+  createdAt   DateTime  @default(now())
 
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
@@ -373,26 +378,26 @@ model VideoReaction {
 }
 
 model Comment {
-  id        String    @id @default(cuid())
-  videoId   String
-  userId    String
-  parentId  String?
-  body      String    @db.Text
-  likeCount Int       @default(0)
-  replyCount Int      @default(0)
-  isPinned  Boolean   @default(false)
-  isHidden  Boolean   @default(false)
-  editedAt  DateTime?
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  videoId    String
+  userId     String
+  parentId   String?
+  body       String    @db.Text
+  likeCount  Int       @default(0)
+  replyCount Int       @default(0)
+  isPinned   Boolean   @default(false)
+  isHidden   Boolean   @default(false)
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  video      Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent     Comment?        @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies    Comment[]       @relation("CommentReplies")
-  likes      CommentLike[]
-  reports    CommentReport[]
+  video   Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?        @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[]       @relation("CommentReplies")
+  likes   CommentLike[]
+  reports CommentReport[]
 
   @@index([videoId, parentId, createdAt])
   @@index([videoId, isPinned, createdAt])
@@ -432,14 +437,14 @@ model View {
 }
 
 model WatchProgress {
-  id            String   @id @default(cuid())
-  userId        String
-  videoId       String
-  positionSec   Float    @default(0)
-  durationSec   Float    @default(0)
-  completed     Boolean  @default(false)
-  updatedAt     DateTime @updatedAt
-  createdAt     DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  videoId     String
+  positionSec Float    @default(0)
+  durationSec Float    @default(0)
+  completed   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
@@ -528,7 +533,7 @@ model Notification {
   dedupeKey   String?          @unique
   createdAt   DateTime         @default(now())
 
-  user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
   actor User? @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([userId, isRead, createdAt])
@@ -556,14 +561,14 @@ model VideoDailyStat {
 }
 
 model ChannelDailyStat {
-  id               String   @id @default(cuid())
-  channelId        String
-  day              DateTime @db.Date
-  views            Int      @default(0)
-  watchSeconds     Int      @default(0)
-  subscribersGained Int     @default(0)
-  subscribersLost  Int      @default(0)
-  uploads          Int      @default(0)
+  id                String   @id @default(cuid())
+  channelId         String
+  day               DateTime @db.Date
+  views             Int      @default(0)
+  watchSeconds      Int      @default(0)
+  subscribersGained Int      @default(0)
+  subscribersLost   Int      @default(0)
+  uploads           Int      @default(0)
 
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
@@ -749,4 +754,191 @@ model TrackRights {
   track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
 
   @@map("track_rights")
+}
+
+/**
+ * ============================================================================
+ * Operator configuration and auditing
+ * ==========================================================================
+ */
+
+/**
+ * One row (id = 1, enforced by a CHECK constraint added in the migration) of
+ * operator-controlled, security-sensitive switches.
+ * This is deliberately **not** part of `User`: whether the instance may create
+ * an initial administrator is a property of the deployment, not of any account,
+ * and disabling it must never alter or delete an account.
+ */
+model SystemSettings {
+  id                    Int      @id @default(1)
+  /**
+   * When false, DEXTube will not create or reset an initial administrator, no
+   * matter what the environment asks for. An operator with database access can
+   * flip it back; the application itself only ever turns it off.
+   */
+  adminBootstrapEnabled Boolean  @default(false)
+  updatedAt             DateTime @updatedAt
+  /// Who last changed it: a user id, or "cli"/"operator"/"system".
+  updatedBy             String?
+
+  @@map("system_settings")
+}
+
+/**
+ * Append-only record of security-sensitive administrative actions.
+ * Written for both operator/CLI actions (`actorUserId` null, `actorLabel`
+ * "cli") and in-app ones, so that a change to bootstrap state, an account
+ * disable or an import start can always be traced back to a person or a
+ * command. `details` is structured and must never contain secrets.
+ */
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorLabel  String
+  /// Dotted action name, e.g. "admin.bootstrap.create", "import.start".
+  action      String
+  targetType  String?
+  targetId    String?
+  details     Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("admin_audit_logs")
+}
+
+/**
+ * ============================================================================
+ * Authorized channel / playlist migration
+ * ==========================================================================
+ */
+
+enum ImportConnectorKind {
+  /// Official YouTube metadata (Data API v3, or the public channel feed).
+  YOUTUBE_CHANNEL
+  YOUTUBE_PLAYLIST
+  /// A creator's own export, supplied to the operator as files on disk.
+  CREATOR_EXPORT
+}
+
+enum ImportSourceStatus {
+  DRAFT
+  PREVIEW
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/**
+ * One entry's state in the import.
+ * `METADATA_ONLY` is a first-class outcome, not an error: it means DEXTube holds
+ * the truthfully-sourced metadata for the entry but has no authorization to
+ * copy the media, so it deliberately stores no video record and says so.
+ */
+enum ImportItemStatus {
+  PENDING
+  IMPORTING
+  METADATA_ONLY
+  IMPORTED
+  SKIPPED_DUPLICATE
+  FAILED
+}
+
+/// One requested migration: a channel or playlist URL plus the operator's scope.
+model ImportSource {
+  id                 String              @id @default(cuid())
+  kind               ImportConnectorKind
+  /// The channel or playlist URL the operator entered.
+  sourceUrl          String
+  /// Provider-side identifier resolved from that URL.
+  externalChannelId  String?
+  title              String?
+  /**
+   * The documented basis on which original media may be copied (an authorized
+   * connector, a creator export, a licence). Required before any bytes are
+   * transferred; "metadata-only" is the honest value when there is none.
+   */
+  authorizationBasis String              @db.Text
+  scopeLimit         Int                 @default(10)
+  scopeIncludeShorts Boolean             @default(false)
+  concurrency        Int                 @default(2)
+  status             ImportSourceStatus  @default(DRAFT)
+
+  estimatedItems    Int?
+  processedItems    Int    @default(0)
+  importedItems     Int    @default(0)
+  metadataOnlyItems Int    @default(0)
+  duplicateItems    Int    @default(0)
+  failedItems       Int    @default(0)
+  bytesImported     BigInt @default(0)
+
+  /// Set by the operator; the runner checks it between items and stops cleanly.
+  cancelRequestedAt DateTime?
+  lastError         String?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+
+  createdBy User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  items     ImportItem[]
+
+  @@index([status, createdAt])
+  @@map("import_sources")
+}
+
+/// One entry of an `ImportSource`, kept even when its media was not imported.
+model ImportItem {
+  id              String    @id @default(cuid())
+  sourceId        String
+  /// Provider-side id (for example the YouTube video id).
+  externalId      String
+  /**
+   * `<connector-kind>:<externalId>`. Unique **per source**, so one video cannot
+   * appear twice in the same import, while a second source (another playlist
+   * containing the same video, say) can still be created — the runner then marks
+   * the entry `SKIPPED_DUPLICATE` by looking the key up across the instance. That
+   * lookup is what the non-unique index below is for.
+   */
+  dedupeKey       String
+  position        Int
+  title           String
+  description     String?   @db.Text
+  publishedAt     DateTime?
+  durationSeconds Int?
+  /// URL of the provider's thumbnail, stored as a reference (never fetched
+  /// unless the entry's media is authorized).
+  thumbnailUrl    String?
+  /// Credit line that must be shown wherever this entry is displayed.
+  attribution     String?
+  /// Provider metadata kept verbatim (bounded, sanitised) for the report.
+  metadata        Json?
+
+  status          ImportItemStatus @default(PENDING)
+  /// Whether the operator's authorization basis covers copying this entry's media.
+  mediaAuthorized Boolean          @default(false)
+  mediaSourceKey  String?
+  attempts        Int              @default(0)
+  lastError       String?
+  /// The DEXTube video created for this entry, when media really was imported.
+  videoId         String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  source ImportSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  /// One entry appears once per source.
+  @@unique([sourceId, dedupeKey])
+  /// Cross-source duplicate detection.
+  @@index([dedupeKey])
+  @@index([sourceId, position])
+  @@index([sourceId, status])
+  @@map("import_items")
 }

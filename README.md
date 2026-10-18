@@ -36,6 +36,8 @@ Licensed under **AGPL-3.0-or-later** — see [`LICENSE`](./LICENSE).
 | **Recommendations** | A **transparent weighted-heuristic** home feed (`strategy: trending-recent` / `personalized`). No machine-learning claims are made; every signal and weight is documented and configurable. Viewers can say **"Not interested" / "Don't recommend this channel"** and **reset** their recommendations, and history-derived signals are only read when watch history is enabled. |
 | **DEXTube Studio** | Creator analytics derived from real recorded events (views, watch time, likes, comments, subscribers) with daily rollups, a sortable paginated content table, bulk publish/unpublish/delete, retry for failed processing, and paginated owner-scoped moderation. |
 | **DEX Music** | A rights-first audio surface: each track stores its source, licence, required attribution, territory and download permission, and a download is only served when that permission exists. Ships **no bundled catalogue** — the library starts empty rather than redistributing music without a licence. See [`docs/music.md`](./docs/music.md). |
+| **Administration** | Role-gated admin surfaces (overview, users, system, import) with server-side authorisation on every endpoint, an append-only `admin_audit_logs` trail, account disable/enable that revokes sessions and burns tokens, and a one-time initial administrator that is refused outright in production. See [`docs/deployment.md`](./docs/deployment.md) §13. |
+| **Authorized migration** | Import metadata for a channel or playlist from **YouTube's official Data API or public feed** — real titles, ids, dates and descriptions, with duplicate detection, bounded concurrency, resumable runs, retries, cancellation and a storage quota. Original media is imported **only** from an authorized creator export that records an authorization basis; entries with no permission stay `METADATA_ONLY`. DEXTube never rips media, never bypasses DRM or access controls, and never fabricates a download. See [`docs/import.md`](./docs/import.md). |
 
 ---
 
@@ -102,6 +104,10 @@ npm run doctor
 | `scripts/doctor.ts` | The `npm run doctor` preflight: Node, config, database, media-directory writability, FFmpeg/FFprobe, H.264 encoder, SMTP. |
 | `scripts/seed.sh` | `npm run db:seed` (and `npx prisma db seed`) — loads `src/server/**` with the `react-server` condition, which Prisma's own runner cannot set. |
 | `scripts/make-test-media.ts` | `npm run make:testmedia` generates small, fully synthesised test clips (no third-party content) into `storage/test-media/`. |
+| `scripts/isolated-setup.sh` | `npm run isolated:setup` creates the isolated test environment: its own database, media tree and `.env.isolated-test` (git-ignored, `chmod 600`). Refuses to continue if the database name would collide with development. |
+| `scripts/isolated.sh` | Runs any command with the isolated environment loaded. `npm run isolated:dev` / `isolated:build` / `isolated:start` wrap it. |
+| `scripts/isolated-reset.ts` | `npm run isolated:reset` clears the isolated environment. Dry run by default; `--apply --yes` to act, after verifying `DEXTUBE_ENV`, the database name and the media root. See [`docs/deployment.md`](./docs/deployment.md) §12. |
+| `scripts/admin-bootstrap.ts` | `npm run admin:bootstrap` creates the one-time initial administrator. `--enable-bootstrap-as-operator` turns the database switch on first (the web app can only ever turn it off). |
 
 ---
 
@@ -125,6 +131,10 @@ SESSION_SECRET=$(openssl rand -base64 48)   # then put it in .env
 | Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURE` | Without SMTP, mail is written to `storage/mail-outbox/*.eml`. |
 | Rate limiting | `RATE_LIMIT_DISABLED`, `LOGIN_MAX_ATTEMPTS`, `LOGIN_WINDOW_MINUTES`, `VIEW_DEDUPE_SECONDS` | |
 | Jobs | `JOB_RUNNER`, `WORKER_POLL_MS`, `JOB_MAX_ATTEMPTS` | `inline` (dev default) or `external` (production). |
+| Deployment identity | `DEXTUBE_ENV` | `development` \| `isolated-test` \| `production`. Deliberately separate from `NODE_ENV`; only `isolated-test` unlocks the destructive reset and the administrator bootstrap. |
+| Initial administrator | `ADMIN_BOOTSTRAP_ENABLED`, `ADMIN_BOOTSTRAP_USERNAME`, `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD` | Refused when `DEXTUBE_ENV=production`. The database switch in `system_settings` must also be on. See [`docs/deployment.md`](./docs/deployment.md) §13. |
+| Isolated test env | `ISOLATED_DATABASE_NAME`, `ISOLATED_MEDIA_ROOT` | What `npm run isolated:reset` checks the live configuration against before deleting anything. |
+| Authorized migration | `YOUTUBE_API_KEY`, `CREATOR_EXPORT_ROOT`, `IMPORT_MAX_ITEMS`, `IMPORT_MAX_CONCURRENCY`, `IMPORT_HTTP_TIMEOUT_MS`, `IMPORT_MAX_RESPONSE_BYTES`, `STORAGE_QUOTA_BYTES` | Without an API key, metadata comes from YouTube's official public feed (latest 15 entries). See [`docs/import.md`](./docs/import.md). |
 
 A few operator-only variables are intentionally not in `.env.example`; they are
 documented where they apply:

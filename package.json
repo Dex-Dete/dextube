@@ -28,7 +28,20 @@
     "make:renditions": "NODE_OPTIONS=--conditions=react-server tsx scripts/make-renditions.ts",
     "doctor": "NODE_OPTIONS=--conditions=react-server tsx scripts/doctor.ts",
     "db:backup": "bash scripts/backup.sh",
-    "db:restore": "bash scripts/restore.sh"
+    "db:restore": "bash scripts/restore.sh",
+    "admin:bootstrap": "NODE_OPTIONS=\"--conditions=react-server\" tsx scripts/admin-bootstrap.ts",
+    "isolated:setup": "bash scripts/isolated-setup.sh",
+    "isolated:migrate": "bash scripts/isolated.sh npx prisma migrate deploy",
+    "isolated:seed": "bash scripts/isolated.sh bash scripts/seed.sh",
+    "isolated:dev": "bash scripts/isolated.sh npx next dev -p 3001",
+    "isolated:build": "bash scripts/isolated.sh npx next build",
+    "isolated:start": "bash scripts/isolated.sh npx next start -H 127.0.0.1 -p 3001",
+    "isolated:admin": "NODE_OPTIONS=\"--conditions=react-server\" bash scripts/isolated.sh npx tsx scripts/admin-bootstrap.ts",
+    "isolated:reset": "NODE_OPTIONS=\"--conditions=react-server\" bash scripts/isolated.sh npx tsx scripts/isolated-reset.ts",
+    "isolated:metadata-test": "NODE_OPTIONS=\"--conditions=react-server\" bash scripts/isolated.sh npx tsx scripts/mrbeast-metadata-test.ts",
+    "admin:switch": "NODE_OPTIONS=\"--conditions=react-server\" npx tsx scripts/admin-switch.ts",
+    "metadata-test": "NODE_OPTIONS=\"--conditions=react-server\" npx tsx scripts/mrbeast-metadata-test.ts",
+    "test:admin-bootstrap": "npm run isolated:reset -- --apply --yes --no-backup && bash scripts/isolated.sh npx vitest run tests/integration/admin-bootstrap.test.ts"
   },
   "prisma": {
     "seed": "bash scripts/seed.sh"

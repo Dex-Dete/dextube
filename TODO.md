@@ -4,6 +4,13 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
 Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 1–9 complete)
 
+## Session 5 follow-up
+- [x] Admin import console displays real item progress and exact copied-byte/quota accounting.
+- [x] Metadata-only wording distinguishes an expected rights/source limitation from an error.
+- [x] Public YouTube media bypass deliberately not implemented; authorized creator exports remain the supported media path.
+- [x] Rebuild/restart the local service after the session-5 import-console edit and run the focused browser check.
+- [ ] Add admin storage/queue overview panels beyond import accounting.
+
 ---
 
 ## DEXTube 2.0 mission (current)

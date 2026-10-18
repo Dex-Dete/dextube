@@ -29,6 +29,12 @@ const csp = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  /**
+   * Build output directory. Overridable so the isolated test instance can build
+   * and run without touching the `.next` that a running production service is
+   * serving from (see docs/deployment.md §"Isolated test environment").
+   */
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // `@node-rs/argon2` and `@prisma/client` ship native/binary payloads; keep
   // them out of the bundler so they load via native require.
   serverExternalPackages: ["@node-rs/argon2", "@prisma/client", "prisma"],

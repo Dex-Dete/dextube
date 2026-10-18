@@ -11,6 +11,8 @@ next-env.d.ts
 .env
 .env.local
 .env.*.local
+# The isolated test environment's real config (see docs/deployment.md).
+.env.isolated-test
 
 # Media & runtime data (never commit uploaded or generated media)
 storage/

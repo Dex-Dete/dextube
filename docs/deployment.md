@@ -306,6 +306,9 @@ the output off-host.
 - [ ] Node.js **>= 22** installed; `npm ci` and `npm run build` completed.
 - [ ] PostgreSQL 16 running and reachable; `npx prisma migrate deploy` applied.
 - [ ] `NODE_ENV=production` set.
+- [ ] `DEXTUBE_ENV=production` set, and `ADMIN_BOOTSTRAP_ENABLED` left false —
+      the bootstrap is refused in production, so create the first administrator
+      before you expose the instance (see §13).
 - [ ] `SESSION_SECRET` is strong and unique (`openssl rand -base64 48`), not a
       placeholder.
 - [ ] `DATABASE_URL` uses real credentials, not a placeholder.
@@ -340,3 +343,136 @@ DEXTube fail fast with a clear error that points at
 remotely. The `MediaStorage` interface (`put`, `getStream` with ranges, `stat`,
 `delete`, `deletePrefix`, `list`, `localPath`, `publicUrl`) is the seam a future
 S3 adapter would implement; until then, use `STORAGE_DRIVER=local`.
+
+---
+
+## 11. `storage/` is live data — never move it to the desktop trash
+
+`MEDIA_ROOT` (default `./storage/media`) holds every uploaded file, and
+`storage/` also carries `backups/`, `mail-outbox/` and the synthesised test
+fixtures. It is conventionally git-ignored, which makes it *look* disposable to a
+file manager: a "Move to Trash" on `storage/` silently removes every video,
+thumbnail, track and backup while the database keeps pointing at them, and the
+only symptom is a `404` on playback.
+
+If that happens:
+
+- The desktop trash keeps the tree intact. `~/.local/share/Trash/files/storage`
+  can be copied back with `cp -a ~/.local/share/Trash/files/storage/. storage/`.
+  Check `~/.local/share/Trash/info/*.trashinfo` for individually-trashed files
+  (their `Path=` lines give the original locations).
+- `npm run db:restore -- <backup-dir> --yes` restores both the database and the
+  media from a backup taken by `scripts/backup.sh`.
+
+To clear media deliberately, never use the file manager: the isolated
+environment's data is cleared with `npm run isolated:reset` (§12), and a full
+reset is `bash scripts/restore.sh` from a known-good backup. Both verify what
+they are about to touch before doing anything.
+
+---
+
+## 12. Isolated test environment
+
+A self-contained copy of DEXTube — its own database, media tree and build output
+— for trying destructive things (the ten-entry migration test, a reset, a
+bootstrap) without touching development or production data.
+
+```bash
+npm run isolated:setup      # create the database, media tree and .env.isolated-test
+npm run isolated:seed       # optional: synthesised fixtures and demo data
+npm run isolated:dev        # http://localhost:3001  (or isolated:build + isolated:start)
+npm run isolated:admin      # the one-time administrator (see §13)
+```
+
+- The database is `dextube_isolated_test` on the same PostgreSQL server as
+  development. `scripts/isolated-setup.sh` refuses to continue if the name would
+  collide with the development database.
+- The media tree is `./storage/isolated-test/media` and the build goes to
+  `.next-isolated`, so the running production service is untouched.
+- `DEXTUBE_ENV=isolated-test` is what unlocks the destructive helpers and the
+  administrator bootstrap. It is deliberately separate from `NODE_ENV`, because
+  `next start` forces `NODE_ENV=production` even for a throwaway instance.
+- `.env.isolated-test` is git-ignored. Every value in it is single-quoted, which
+  is what makes `scripts/isolated.sh` safe to source.
+
+### 12.1 Resetting the isolated environment
+
+```bash
+npm run isolated:reset                              # dry run; changes nothing
+npm run isolated:reset -- --json                    # machine-readable dry run
+npm run isolated:reset -- --apply --yes             # back up, then clear
+npm run isolated:reset -- --apply --yes --no-backup
+```
+
+The command refuses to run unless **all** of the following hold, and it reports
+exactly which check failed:
+
+1. `DEXTUBE_ENV=isolated-test`.
+2. `DATABASE_URL` names the database the environment *declares*
+   (`ISOLATED_DATABASE_NAME`), that name looks like a test database, and it is not
+   the development database's name.
+3. `MEDIA_ROOT` equals the declared `ISOLATED_MEDIA_ROOT`, is not inside the
+   development media root, and lives under `storage/isolated-test/`.
+
+It prints a dry run by default; removing anything requires `--apply` **and**
+`--yes`; and it takes a database + media backup into
+`storage/isolated-test/backups/` first unless `--no-backup` is passed. It is
+idempotent (a second run finds nothing and succeeds), it preserves the migrations
+and the `system_settings` row, and it is never invoked at startup — there is no
+code path from serving traffic to it. Recovery instructions are printed after a
+successful reset and recorded in the backup's `manifest.txt`.
+
+---
+
+## 13. Initial administrator
+
+A fresh DEXTube has **no** administrator, and it never creates one on its own.
+
+```bash
+# Operator turns the database switch on and creates the account in one step:
+npm run admin:bootstrap -- --enable-bootstrap-as-operator
+```
+
+The account is `admin` / `admin@admin.com` with the configured
+`ADMIN_BOOTSTRAP_PASSWORD`. It is created with `mustChangePassword` set, so it
+must choose a real password before it can use any administrator surface. The
+bootstrap is quiet and non-destructive on every later run: it skips when an
+administrator already exists (it never promotes, renames or resets an existing
+account), and it is **refused outright when `DEXTUBE_ENV=production`**.
+
+Three independent switches must agree before anything is created:
+
+| Switch | Where | Who may set it |
+| --- | --- | --- |
+| `DEXTUBE_ENV` ∈ {`development`, `isolated-test`} | environment | whoever runs the process |
+| `ADMIN_BOOTSTRAP_ENABLED=true` + a password | environment | whoever runs the process |
+| `SystemSettings.adminBootstrapEnabled` (`system_settings` row `id = 1`) | database | an operator with database access |
+
+The application may only ever turn the database switch **off** —
+`PATCH /api/admin/settings` with `{"adminBootstrapEnabled": false}` — and
+re-arming it needs direct database access (that is what
+`--enable-bootstrap-as-operator` represents). A compromised administrator session
+therefore cannot mint itself a fresh bootstrap administrator. Every change is
+written to `admin_audit_logs` with `actorLabel: "operator"` and no secrets.
+
+The well-known password `admin` is only tolerated when
+`DEXTUBE_ENV=isolated-test`; with any other value, `ADMIN_BOOTSTRAP_ENABLED=true`
+requires a real `ADMIN_BOOTSTRAP_PASSWORD`. Never publish an instance that still
+has the bootstrap password.
+
+**Recovering when the only administrator is disabled.** Disabling an account sets
+`isSuspended`, increments `sessionEpoch` and revokes its sessions; it does not
+delete the user or change its password. To restore access, an operator with
+database access runs:
+
+```sql
+UPDATE users SET "isSuspended" = false, "suspendedReason" = NULL
+WHERE username = 'admin';
+```
+
+The account keeps its password, but its sessions stay revoked, so it must sign in
+again. If the password is also lost, `npm run admin:bootstrap` will **not** help:
+it will never touch an existing account. Reset the password through the normal
+password-reset flow with SMTP configured, or, as a last resort, set
+`mustChangePassword = true` and a new `passwordHash` computed with DEXTube's own
+hasher (`@node-rs/argon2`), then have the operator change it through the UI.
