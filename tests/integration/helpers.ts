@@ -94,6 +94,54 @@ export async function createReadyVideo(input: ReadyVideoInput) {
   });
 }
 
+export interface TestTrackInput {
+  channelId: string;
+  uploaderId: string;
+  title: string;
+  /** `null` deliberately omits the rights row, to exercise "fail closed". */
+  downloadAllowed?: boolean | null;
+  license?: string;
+  visibility?: Visibility;
+}
+
+/**
+ * Creates a DEX Music track row (with optional rights) without storing audio.
+ * The bytes are irrelevant to the authorisation logic under test, which reads
+ * only `visibility`, `channelId` and `TrackRights.downloadAllowed`.
+ */
+export async function createTestTrack(input: TestTrackInput) {
+  const id = randomUUID().replace(/-/g, "").slice(0, 24);
+  const track = await prisma.track.create({
+    data: {
+      id,
+      channelId: input.channelId,
+      uploaderId: input.uploaderId,
+      title: input.title,
+      artist: "ITest tone",
+      durationSec: 3,
+      audioKey: `tracks/${id}/audio/original.m4a`,
+      mimeType: "audio/mp4",
+      visibility: input.visibility ?? "PUBLIC",
+      publishedAt: new Date(),
+    },
+  });
+
+  if (input.downloadAllowed !== null) {
+    await prisma.trackRights.create({
+      data: {
+        trackId: id,
+        source: "vitest fixture",
+        license: input.license ?? "CC0-1.0",
+        attribution: "Created by tests/integration/helpers.ts",
+        territory: "Worldwide",
+        downloadAllowed: input.downloadAllowed ?? false,
+      },
+    });
+  }
+
+  return track;
+}
+
 /** Removes every fixture created by this test file. Safe to call repeatedly. */
 export async function cleanupFixtures(): Promise<void> {
   if (createdUserIds.length > 0) {

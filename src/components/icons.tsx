@@ -117,6 +117,18 @@ export const StudioIcon = (p: IconProps) => (
   </Icon>
 );
 
+/**
+ * DEX Music: a beamed note with a play wedge, drawn to the same 1.7px geometry
+ * as the rest of the set. Used by the navigation entry and the mini-player.
+ */
+export const MusicIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 18V6.2l9-2v11" />
+    <circle cx="6.5" cy="18" r="2.5" />
+    <circle cx="15.5" cy="15" r="2.5" />
+  </Icon>
+);
+
 export const MenuIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />

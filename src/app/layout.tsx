@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Shell } from "@/components/shell/Shell";
+import { MusicPlayerProvider } from "@/components/music/MusicPlayerProvider";
 import { ThemeScript } from "@/components/shell/ThemeScript";
 import { getCurrentUser } from "@/server/auth/session";
 import { getNavData } from "@/server/services/nav";
@@ -83,15 +84,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeScript />
       </head>
       <body>
-        <Suspense fallback={<div style={{ minHeight: "100vh" }} />}>
-          <Shell
-            viewer={viewer}
-            subscriptions={nav.subscriptions}
-            unreadNotifications={nav.unreadNotifications}
-          >
-            {children}
-          </Shell>
-        </Suspense>
+        <MusicPlayerProvider>
+          <Suspense fallback={<div style={{ minHeight: "100vh" }} />}>
+            <Shell
+              viewer={viewer}
+              subscriptions={nav.subscriptions}
+              unreadNotifications={nav.unreadNotifications}
+            >
+              {children}
+            </Shell>
+          </Suspense>
+        </MusicPlayerProvider>
         {config.isProd && null /* production-only additions go here */}
       </body>
     </html>

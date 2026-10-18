@@ -100,6 +100,30 @@ internal interfaces may still change between releases.
 - `tests/integration/studio.test.ts`, which asserts that the dashboard's rollup
   read path and a direct raw-event query produce identical numbers for a range,
   that soft-deleted comments are excluded, and that page sizes are capped.
+- **DEX Music** — a rights-first audio surface. A playable `Track` (owned by a
+  channel, exactly like a video) plus a separate 1:1 `TrackRights` row recording
+  `source`, `license`, `attribution`, `territory` and `downloadAllowed`, applied
+  as an additive migration. `/music` lists PUBLIC tracks from the service layer
+  and `/music/[id]` shows a track with its licence terms on screen. Streaming and
+  downloading are independent permissions: the download control is rendered only
+  when `downloadAllowed` is true (otherwise the page says so in words — no
+  disabled button), and the existing media route re-checks the right before
+  serving a `?download=1` request (403 when visible but not permitted, 404 when
+  not visible), so the UI is never the enforcement point. The library ships no
+  catalogue: when nothing is playable the empty state explains what makes a track
+  eligible and how one is added.
+- A persistent, keyboard-accessible music mini-player (one `<audio>` mounted in
+  the root layout, so playback survives navigation) with previous/next, seek and
+  close controls, and no motion that ignores `prefers-reduced-motion`.
+- `scripts/make-test-audio.ts` (`npm run make:testaudio`) synthesises original
+  `sine`/`anoisesrc` audio fixtures with FFmpeg — no third-party audio is
+  downloaded or bundled — and the seed stores three real, playable tracks with
+  honest rights metadata (a downloadable CC0-1.0 tone, a streaming-only tone, and
+  a private downloadable tone), idempotently.
+- `tests/unit/music-download.test.ts` and `tests/integration/music.test.ts`
+  covering the pure download decision and its enforcement against real database
+  rows (`downloadAllowed = false` refused with 403, `true` allowed, visibility
+  enforced, and a missing rights row failing closed).
 
 ### Changed
 
@@ -156,6 +180,11 @@ internal interfaces may still change between releases.
 
 ### Fixed
 
+- An already-applied migration (`20261018052716_recsys_feedback`) had a stale
+  checksum recorded in `_prisma_migrations`, which made `prisma migrate dev`
+  offer a destructive reset. The metadata row was corrected to the on-disk
+  migration's hash — no schema or data change — so the additive `music` migration
+  could be generated and applied without resetting the database.
 - **The player's seek bar was pinned at zero on a fast connection.** The
   `<video>` is server-rendered with its source, so the browser could finish
   loading metadata before React hydrated and attached listeners; the missed

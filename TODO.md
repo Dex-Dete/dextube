@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–5)
+Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–6)
 
 ---
 
@@ -18,7 +18,7 @@ unit/integration tests and the browser suite before it is considered done.
 | 3 | Professional video player on real media primitives | `[x]` |
 | 4 | Recommendations: versioned weights, diversity, feedback | `[x]` |
 | 5 | Studio: real aggregates, paginated table, bulk ops, moderation | `[x]` |
-| 6 | DEX Music: rights metadata, no fabricated catalogue | `[ ]` |
+| 6 | DEX Music: rights metadata, no fabricated catalogue | `[x]` |
 | 7 | Measured performance, indexes, health/readiness, recovery docs | `[ ]` |
 | 8 | Automated coverage for player / recsys / studio / music / authz / jobs | `[~]` |
 | 9 | Documentation and session continuity | `[~]` |
@@ -61,6 +61,17 @@ unit/integration tests and the browser suite before it is considered done.
 - [x] Moderation (reported comments) paginated and owner-scoped
 - [x] Route-level loading skeletons and error boundaries under `/studio`; `EmptyState` on empty Studio panels
 - [x] `tests/integration/studio.test.ts`: rollup path equals the raw path, soft-deleted comments excluded, page size capped
+
+### Phase 6 — DEX Music
+- [x] `Track` + separate `TrackRights` (source, licence, attribution, territory, `downloadAllowed`) added as an additive migration
+- [x] Downloads gated on the rights metadata and enforced in the one route that serves the bytes; a streaming-only track returns 403 and its page renders no download control at all
+- [x] Private tracks are refused to anonymous viewers (404) and the private track never appears in the library
+- [x] `/music` library with a real `EmptyState` when nothing is playable; `/music/[id]` shows source, licence, attribution, territory and download permission
+- [x] Persistent, keyboard-accessible mini-player: one `<audio>` in the root layout that survives client-side navigation
+- [x] `scripts/make-test-audio.ts` synthesises original `sine`/`anoisesrc` fixtures with FFmpeg (no third-party audio); the seed is additive and idempotent
+- [x] `tests/unit/music-download.test.ts` (decision logic), `tests/integration/music.test.ts` (real DB enforcement), `tests/e2e/music.spec.ts` (playback, persistence, no download control)
+- [x] No fabricated catalogue: three synthetic tones with honest metadata, and no audio upload form pretending to exist
+
 
 ---
 
@@ -151,8 +162,8 @@ unit/integration tests and the browser suite before it is considered done.
 ## Phase 9 — Acceptance run
 - [x] `npx tsc --noEmit` clean
 - [x] `npm run lint` → 0 problems
-- [x] `npm test` → 8 files / 61 tests passing (now 11 files / 95 tests)
-- [x] `npm run test:e2e` → 3 tests passing, twice back-to-back (repeatable; now 9 browser tests)
+- [x] `npm test` → 8 files / 61 tests passing (now 13 files / 105 tests)
+- [x] `npm run test:e2e` → 3 tests passing, twice back-to-back (repeatable; now 11 browser tests)
 - [x] Fresh-machine documented startup (database up → migrate deploy → seed → dev)
 - [x] All §19 acceptance steps executed and recorded in `PROJECT_STATUS.md`
 - [x] Production build (`npm run build`) + `npm start` smoke test; e2e re-run against the production build

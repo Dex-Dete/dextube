@@ -47,6 +47,33 @@ export interface PlaylistSummaryDTO {
   thumbnailKey: string | null;
 }
 
+/**
+ * Rights metadata for a track, shaped for display. `downloadAllowed` is the
+ * single flag the UI may use to decide whether a download control is rendered
+ * at all — and the server re-checks it before serving a `?download=1` request.
+ */
+export interface TrackRightsDTO {
+  source: string;
+  license: string;
+  attribution: string;
+  territory: string;
+  downloadAllowed: boolean;
+}
+
+/** A track as shown in the library and handed to the mini-player queue. */
+export interface TrackDTO {
+  id: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  durationSec: number;
+  visibility: "PRIVATE" | "UNLISTED" | "PUBLIC";
+  /** Opaque storage key; the client builds `/api/media/<key>` from it. */
+  audioKey: string;
+  channel: ChannelSummaryDTO;
+  rights: TrackRightsDTO | null;
+}
+
 export interface CommentDTO {
   id: string;
   body: string;

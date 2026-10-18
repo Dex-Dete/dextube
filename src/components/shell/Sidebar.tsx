@@ -9,6 +9,7 @@ import {
   HistoryIcon,
   HomeIcon,
   LikedIcon,
+  MusicIcon,
   PlaylistIcon,
   SettingsIcon,
   ShortsIcon,
@@ -28,6 +29,7 @@ interface NavItem {
 const EXPLORE: NavItem[] = [
   { href: "/", label: "Home", icon: <HomeIcon />, exact: true },
   { href: "/shorts", label: "Shorts", icon: <ShortsIcon /> },
+  { href: "/music", label: "Music", icon: <MusicIcon /> },
   { href: "/feed/subscriptions", label: "Subscriptions", icon: <SubscriptionsIcon /> },
 ];
 

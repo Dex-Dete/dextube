@@ -4,7 +4,7 @@
 > completed work, exact test results, known bugs, and the exact next action.
 > Companion file: [`TODO.md`](./TODO.md).
 
-_Last updated: 2026-10-18 (session 3)_
+_Last updated: 2026-10-18 (session 4)_
 
 ---
 
@@ -410,8 +410,8 @@ Authenticated (session cookie): `/studio`, `/studio/videos`, `/studio/analytics`
 
 ## 9. Next action (resume here)
 
-**DEXTube 2.0 mission is in progress.** Phases 2–5 are complete and verified;
-phases 6–9 remain. See §11 for the phase-by-phase record.
+**DEXTube 2.0 mission is in progress.** Phases 2–6 are complete and verified;
+phases 7–9 remain. See §11 for the phase-by-phase record.
 
 ---
 
@@ -448,7 +448,7 @@ phases 6–9 remain. See §11 for the phase-by-phase record.
 ## 11. DEXTube 2.0 (mission log)
 
 The mission is an audit-then-rebuild pass over nine areas, each landing as a
-tested milestone. Phases 2–4 are done; the rest are pending.
+tested milestone. Phases 2–6 are done; the rest are pending.
 
 ### Status
 
@@ -459,7 +459,7 @@ tested milestone. Phases 2–4 are done; the rest are pending.
 | 3 | Professional video player | ✅ done |
 | 4 | Recommendations | ✅ done |
 | 5 | Studio (analytics, content table, bulk ops, moderation) | ✅ done |
-| 6 | DEX Music (rights metadata, no fabricated catalogue) | ⬜ pending |
+| 6 | DEX Music (rights metadata, no fabricated catalogue) | ✅ done |
 | 7 | Measured performance, indexes, health/readiness | ⬜ pending |
 | 8 | Automated coverage (unit + integration + browser) | 🟡 partially done (player and recommender covered) |
 | 9 | Documentation and session continuity | 🟡 this file, `TODO.md`, `CHANGELOG.md` |
@@ -574,12 +574,63 @@ production build: 200s for every Studio page, real aggregate numbers from
 a rejected oversized page, a bulk action that failed closed on a foreign id
 while succeeding on the owned one, and a 403 for a request with no `Origin`.
 
+### Phase 6 — DEX Music
+
+A rights-first audio surface. The starting point was that DEXTube ships **no
+music catalogue**: nothing is fabricated, and an empty library explains itself.
+
+* **Two models, one additive migration.** `Track` is a playable audio row owned
+  by a channel, following the same ownership and `Visibility` rules as video.
+  `TrackRights` is a **separate** 1:1 row (unique `trackId`) carrying `source`,
+  `license`, `attribution`, `territory` and `downloadAllowed`. Keeping rights out
+  of the media row makes "no rights row ⇒ nothing is downloadable" structural and
+  keeps an audit of licences independent of playback data. Migration
+  `20261018080249_music` only creates two tables, indexes and foreign keys — no
+  column, row or data is dropped.
+* **Streaming and downloading are independent.** Visibility decides who may
+  play; `TrackRights.downloadAllowed` decides who may copy. The library and track
+  pages render a download control **only** when the flag is true (otherwise the
+  page states, in words, that the licence allows streaming only — there is no
+  disabled button), and the existing `/api/media/...` route — there is no second
+  media path — calls `authorizeTrackDownload()` before serving `?download=1`. A
+  visible track whose rights forbid downloads is a `403`; an invisible one is a
+  `404` so existence is not leaked. `evaluateDownloadAccess()` is pure and
+  unit-tested; `authorizeTrackDownload()` is the async enforcement wrapper.
+* **The mini-player persists.** One `<audio>` lives in a provider mounted by the
+  root layout, and a layout is not remounted on navigation, so playback continues
+  across pages. Controls are real `<button>`s and a range input, the region is
+  named, and the bar opts out of transitions under `prefers-reduced-motion`.
+* **Fixtures are original.** `scripts/make-test-audio.ts` synthesises AAC/M4A
+  clips from FFmpeg's `sine` and `anoisesrc` sources; no recording is downloaded
+  or bundled. The seed stores three real tracks with honest rights — a PUBLIC
+  CC0-1.0 tone with downloads permitted, a PUBLIC streaming-only tone whose
+  licence is stated as the operator's demonstration grant (the generator's output
+  is CC0, so labelling it restrictive while keeping a CC0 label would be false),
+  and a PRIVATE downloadable tone.
+* **Disclosure — migration metadata.** `npx prisma migrate dev --name music`
+  initially refused to run because the already-applied
+  `20261018052716_recsys_feedback` migration carried a stale checksum in
+  `_prisma_migrations`, and Prisma offered a destructive reset. The reset was
+  declined: only that metadata row was corrected to the on-disk migration's hash,
+  after which the additive `music` migration generated and applied with no data
+  loss. No schema or application data was changed by the correction.
+
+Verified for this phase: `npx tsc --noEmit` clean; ESLint clean over every changed
+file; `npm test` **13 files / 105 tests passing** (10 new); the seed inserted three
+tracks and a second run left the same three rows ("rights refreshed");
+`GET /api/media/tracks/<id>/audio/original.m4a` returned `Content-Type: audio/mp4`
+and a `Range` request returned `206` with `Content-Range`; `?download=1` returned
+`200` with `Content-Disposition: attachment` on the permitted track and `403` on
+the streaming-only one; the private track was a `404`. Per the task constraints,
+`npm run build` was **not** run and the port-3000 service was left untouched; the
+HTTP checks ran against a throwaway `next dev` on port 3100.
+
 ### Test evidence (current)
 
 | Suite | Result |
 | --- | --- |
 | `npm run lint` (ESLint CLI over the whole tree) | clean |
-| `npm test` (unit + integration) | 11 files, 95 tests passing |
+| `npm test` (unit + integration) | 13 files, 105 tests passing |
 | `npx playwright test` (real Chromium against the production build) | 9 tests passing, three consecutive clean runs |
 | `npm run build` | compiles; the client bundle is unchanged in size by the player work |
 

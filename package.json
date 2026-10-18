@@ -24,6 +24,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "make:testmedia": "tsx scripts/make-test-media.ts",
+    "make:testaudio": "tsx scripts/make-test-audio.ts",
     "make:renditions": "NODE_OPTIONS=--conditions=react-server tsx scripts/make-renditions.ts",
     "doctor": "NODE_OPTIONS=--conditions=react-server tsx scripts/doctor.ts",
     "db:backup": "bash scripts/backup.sh",

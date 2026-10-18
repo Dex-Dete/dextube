@@ -141,6 +141,7 @@ model User {
   commentReports CommentReport[]
   videoFeedback VideoFeedback[]
   hiddenChannels HiddenChannel[]
+  tracks        Track[]
 
   @@index([createdAt])
   @@map("users")
@@ -218,6 +219,7 @@ model Channel {
   subscriptions Subscription[]
   dailyStats    ChannelDailyStat[]
   hiddenBy      HiddenChannel[]
+  tracks        Track[]
 
   @@index([subscriberCount])
   // Trigram indexes for fast ILIKE '%term%' search. Declared here (with the
@@ -678,4 +680,73 @@ model HiddenChannel {
   @@unique([userId, channelId])
   @@index([userId, createdAt])
   @@map("hidden_channels")
+}
+
+// ---------------------------------------------------------------------------
+// DEX Music — audio tracks and their rights metadata
+// ---------------------------------------------------------------------------
+
+/// A playable audio track owned by a channel.
+///
+/// Rights metadata is a **separate** `TrackRights` row rather than embedded
+/// columns. Three reasons:
+///   * A licence is legally distinct from the media record: it can be
+///     re-verified, replaced or revoked without touching `audioKey`, and an
+///     audit over every licence does not have to scan playback data.
+///   * It makes "no rights row ⇒ nothing is downloadable" structural: the
+///     download check joins `TrackRights` and fails closed when the row is
+///     missing, so a half-created track can never be redistributed.
+///   * The (rare) rights edit and the (also rare) media edit stay independent.
+model Track {
+  id          String     @id @default(cuid())
+  channelId   String
+  uploaderId  String
+  title       String
+  /// The performer/creator credit shown as the track's "artist".
+  artist      String
+  /// Optional collection (album, EP, single) the track belongs to.
+  album       String?
+  durationSec Float      @default(0)
+  /// Storage key of the stored audio, e.g. `tracks/<id>/audio/original.m4a`.
+  /// Generated server-side; a client-supplied path is never used as a key.
+  audioKey    String
+  mimeType    String
+  sizeBytes   BigInt?
+  visibility  Visibility @default(PRIVATE)
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  channel  Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  uploader User         @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  rights   TrackRights?
+
+  @@index([visibility, publishedAt])
+  @@index([channelId, publishedAt])
+  @@index([deletedAt])
+  @@map("tracks")
+}
+
+/// Rights metadata for one track. See the note on `Track` for why this is a
+/// separate row and not columns on `tracks`.
+model TrackRights {
+  id              String   @id @default(cuid())
+  trackId         String   @unique
+  /// Where the audio came from, stated in plain words.
+  source          String
+  /// SPDX identifier or short licence text, e.g. "CC0-1.0".
+  license         String
+  /// The exact credit line the UI must display verbatim.
+  attribution     String   @db.Text
+  /// Where distribution is permitted, in plain words, e.g. "Worldwide".
+  territory       String
+  /// Whether downloading a copy is permitted at all.
+  downloadAllowed Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@map("track_rights")
 }

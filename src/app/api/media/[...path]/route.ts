@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getStorage, mimeForExtension, normalizeKey } from "@/server/storage";
 import { getCurrentUser } from "@/server/auth/session";
+import { authorizeTrackDownload } from "@/server/services/music";
 import { jsonError } from "@/lib/http";
 import { notFound } from "@/lib/errors";
 
@@ -57,6 +58,19 @@ async function serve(
     const url = new URL(request.url);
     const download = url.searchParams.get("download") === "1";
     const contentType = mimeForExtension(key);
+
+    // A track's bytes are playable under the visibility rules, but a *download*
+    // is an additional right granted by the track's licence. Enforcing it here
+    // — on the one route that serves the bytes — means `?download=1` cannot
+    // bypass the rights metadata.
+    if (download && key.startsWith("tracks/")) {
+      const trackId = key.split("/")[1];
+      if (!trackId) throw notFound("Media not found.");
+      await authorizeTrackDownload(trackId, {
+        channelId: user?.channel?.id ?? null,
+        role: user?.role ?? "USER",
+      });
+    }
 
     const baseHeaders: Record<string, string> = {
       "content-type": contentType,
@@ -135,6 +149,27 @@ async function authorize(key: string, userId: string | null, channelId: string |
     if (!uploadId || !userId) return false;
     const upload = await prisma.upload.findUnique({ where: { id: uploadId }, select: { userId: true } });
     return upload?.userId === userId ? "private" : false;
+  }
+
+  if (key.startsWith("tracks/")) {
+    // Music follows the same visibility rule as video: PUBLIC and UNLISTED are
+    // readable by anyone with the key, PRIVATE only by the owning channel (or a
+    // moderator/admin reviewing it). Download rights are checked separately in
+    // `serve()`.
+    const trackId = key.split("/")[1];
+    if (!trackId) return false;
+    const track = await prisma.track.findUnique({
+      where: { id: trackId },
+      select: { visibility: true, channelId: true, deletedAt: true },
+    });
+    if (!track || track.deletedAt) return false;
+    if (channelId && channelId === track.channelId) return "private";
+    if (track.visibility === "PRIVATE") {
+      if (!userId) return false;
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      return user && user.role !== "USER" ? "private" : false;
+    }
+    return track.visibility === "PUBLIC" ? true : "private";
   }
 
   if (key.startsWith("health/")) return false;

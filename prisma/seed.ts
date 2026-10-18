@@ -23,6 +23,7 @@ import { registerUser } from "../src/server/services/accounts";
 import { aggregateDailyStats } from "../src/server/services/analytics";
 import { ensureSystemPlaylist } from "../src/server/services/videos";
 import { ensureTestMedia } from "../scripts/make-test-media";
+import { ensureTestAudio } from "../scripts/make-test-audio";
 
 const DEV_PASSWORD = "CorrectHorse1";
 const HISTORY_DAYS = 14;
@@ -254,6 +255,99 @@ const SEED_VIDEOS: SeedVideo[] = [
   },
 ];
 
+interface SeedTrack {
+  channel: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  /** Fixture file name from `storage/test-audio/`. */
+  audio: string;
+  durationSec: number;
+  visibility: "PUBLIC" | "UNLISTED" | "PRIVATE";
+  rights: {
+    source: string;
+    license: string;
+    attribution: string;
+    territory: string;
+    downloadAllowed: boolean;
+  };
+}
+
+/**
+ * DEX Music demo tracks.
+ *
+ * Every fixture is a computer-generated `sine`/`anoisesrc` clip produced by
+ * `scripts/make-test-audio.ts`; no third-party recording is bundled or
+ * downloaded. The rights rows are deliberately varied so the two independent
+ * permissions — *streaming* (visibility) and *downloading* (`downloadAllowed`)
+ * — can each be exercised:
+ *
+ *   * tone A   — PUBLIC, downloads permitted (CC0-1.0).
+ *   * tone C   — PUBLIC, streaming only, downloads forbidden.
+ *   * noise    — PRIVATE, downloads permitted, but visible only to the channel.
+ *
+ * The middle track has to be honest: the generator's output is CC0, which
+ * permits copies. Rather than mislabel a public-domain work as restrictive, the
+ * licence is recorded as the operator's explicit streaming-only demonstration
+ * grant, and the attribution says exactly that.
+ */
+const SEED_TRACKS: SeedTrack[] = [
+  {
+    channel: "ada",
+    title: "Concert A (440 Hz) — reference tone",
+    artist: "DEXTube test tone generator",
+    album: "Synthesised reference tones",
+    audio: "tone-a440-3s.m4a",
+    durationSec: 3,
+    visibility: "PUBLIC",
+    rights: {
+      source: "Synthesised by scripts/make-test-audio.ts with FFmpeg's `sine` filter (440 Hz).",
+      license: "CC0-1.0",
+      attribution:
+        "“Concert A (440 Hz) — reference tone” synthesised for DEXTube by scripts/make-test-audio.ts. CC0-1.0.",
+      territory: "Worldwide",
+      downloadAllowed: true,
+    },
+  },
+  {
+    channel: "grace",
+    title: "Middle C (261.63 Hz) — streaming only",
+    artist: "DEXTube test tone generator",
+    album: "Synthesised reference tones",
+    audio: "tone-c262-5s.m4a",
+    durationSec: 5,
+    visibility: "PUBLIC",
+    rights: {
+      source: "Synthesised by scripts/make-test-audio.ts with FFmpeg's `sine` filter (261.63 Hz).",
+      // Not an SPDX identifier: this is the operator's own demonstration grant.
+      // The generator offers its output as CC0, which would allow downloads, so
+      // a streaming-only term is stated explicitly instead of mislabelled.
+      license: "DEXTube demonstration licence — streaming only",
+      attribution:
+        "“Middle C (261.63 Hz) — streaming only” synthesised for DEXTube by scripts/make-test-audio.ts, offered under the operator's streaming-only demonstration grant to show a track whose rights forbid downloading.",
+      territory: "Worldwide",
+      downloadAllowed: false,
+    },
+  },
+  {
+    channel: "margaret",
+    title: "Calibration noise (white, 2 s)",
+    artist: "DEXTube test tone generator",
+    album: null,
+    audio: "noise-2s.m4a",
+    durationSec: 2,
+    visibility: "PRIVATE",
+    rights: {
+      source: "Synthesised by scripts/make-test-audio.ts with FFmpeg's `anoisesrc` filter (white noise).",
+      license: "CC0-1.0",
+      attribution:
+        "“Calibration noise (white, 2 s)” synthesised for DEXTube by scripts/make-test-audio.ts. CC0-1.0.",
+      territory: "Worldwide",
+      downloadAllowed: true,
+    },
+  },
+];
+
 const COMMENT_BODIES = [
   "This explained it better than three textbooks I have read. Thank you.",
   "The part about reasoning before coding really landed for me.",
@@ -291,12 +385,12 @@ async function main(): Promise<void> {
   console.log("DEXTube seed\n");
 
   const storage = getStorage();
-  console.log("1/8  Ensuring synthesised test media exists…");
+  console.log("1/9  Ensuring synthesised test media exists…");
   const media = await ensureTestMedia();
   const poster = media["poster.jpg"]!;
 
   /* --------------------------------------------------------- users/channels */
-  console.log("2/8  Users and channels…");
+  console.log("2/9  Users and channels…");
   const users = new Map<string, { userId: string; channelId: string }>();
 
   for (const spec of SEED_USERS) {
@@ -353,7 +447,7 @@ async function main(): Promise<void> {
   }
 
   /* ---------------------------------------------------------------- videos */
-  console.log("3/8  Videos (with real, playable media files)…");
+  console.log("3/9  Videos (with real, playable media files)…");
   const videoIds: Array<{ id: string; channel: string; durationSec: number }> = [];
 
   for (const spec of SEED_VIDEOS) {
@@ -453,7 +547,7 @@ async function main(): Promise<void> {
   console.log(`     ${videoIds.length} videos ready`);
 
   /* -------------------------------------------------------------- comments */
-  console.log("4/8  Comments and replies…");
+  console.log("4/9  Comments and replies…");
   const allUsers = [...users.values()];
   for (const video of videoIds) {
     const count = await prisma.comment.count({ where: { videoId: video.id } });
@@ -500,7 +594,7 @@ async function main(): Promise<void> {
   }
 
   /* ------------------------------------------------------------- reactions */
-  console.log("5/8  Reactions…");
+  console.log("5/9  Reactions…");
   for (const video of videoIds) {
     const existing = await prisma.videoReaction.count({ where: { videoId: video.id } });
     if (existing > 0) continue;
@@ -520,7 +614,7 @@ async function main(): Promise<void> {
   }
 
   /* --------------------------------------------------------- subscriptions */
-  console.log("6/8  Subscriptions…");
+  console.log("6/9  Subscriptions…");
   for (const subscriber of allUsers) {
     for (const target of allUsers) {
       if (subscriber.channelId === target.channelId) continue;
@@ -547,7 +641,7 @@ async function main(): Promise<void> {
   }
 
   /* ------------------------------------------------- views / watch history */
-  console.log(`7/8  Views and watch history spread over ${HISTORY_DAYS} days…`);
+  console.log(`7/9  Views and watch history spread over ${HISTORY_DAYS} days…`);
   for (const video of videoIds) {
     const existingViews = await prisma.view.count({ where: { videoId: video.id } });
     if (existingViews > 0) continue;
@@ -595,7 +689,7 @@ async function main(): Promise<void> {
   }
 
   /* ------------------------------------------ library + analytics rollups */
-  console.log("8/8  System playlists and daily analytics rollups…");
+  console.log("8/9  System playlists and daily analytics rollups…");
   for (const user of allUsers) {
     await ensureSystemPlaylist(user.userId, "watch_later");
     await ensureSystemPlaylist(user.userId, "liked_videos");
@@ -623,6 +717,73 @@ async function main(): Promise<void> {
   for (let i = HISTORY_DAYS - 1; i >= 0; i--) {
     await aggregateDailyStats(new Date(Date.now() - i * 86_400_000));
   }
+
+  /* ----------------------------------------------------------------- music */
+  console.log("9/9  DEX Music tracks (rights-cleared audio)…");
+  const audioFixtures = await ensureTestAudio();
+  let trackCount = 0;
+
+  for (const spec of SEED_TRACKS) {
+    const owner = users.get(spec.channel);
+    if (!owner) continue;
+
+    const existing = await prisma.track.findFirst({
+      where: { channelId: owner.channelId, title: spec.title, deletedAt: null },
+      select: { id: true },
+    });
+
+    const trackId =
+      existing?.id ??
+      (
+        await prisma.track.create({
+          data: {
+            channelId: owner.channelId,
+            uploaderId: owner.userId,
+            title: spec.title,
+            artist: spec.artist,
+            album: spec.album,
+            durationSec: spec.durationSec,
+            mimeType: "audio/mp4",
+            // Replaced with the real key immediately below, once the generated
+            // id is known (`audioKey` is non-nullable).
+            audioKey: "tracks/placeholder/audio/original.m4a",
+            visibility: spec.visibility,
+            publishedAt:
+              spec.visibility === "PUBLIC" ? new Date(Date.now() - between(1, HISTORY_DAYS) * 86_400_000) : null,
+          },
+          select: { id: true },
+        })
+      ).id;
+
+    const audioKey = `tracks/${trackId}/audio/original.m4a`;
+    if (!(await storage.exists(audioKey))) {
+      await copyFixture(storage, audioFixtures[spec.audio]!, audioKey);
+    }
+
+    // Point the row at its real bytes and keep the recorded size in step with
+    // the file on disk. Idempotent: the key is derived from the id, so a
+    // re-run overwrites the same object rather than creating a new one.
+    await prisma.track.update({
+      where: { id: trackId },
+      data: {
+        audioKey,
+        mimeType: "audio/mp4",
+        sizeBytes: BigInt((await storage.stat(audioKey))?.size ?? 0),
+      },
+    });
+
+    // Rights are upserted so an edited licence in this file is applied on the
+    // next run without creating a second rights row (trackId is unique).
+    await prisma.trackRights.upsert({
+      where: { trackId },
+      create: { trackId, ...spec.rights },
+      update: spec.rights,
+    });
+
+    console.log(existing ? `     · ${spec.title} already exists — rights refreshed` : `     + ${spec.title}`);
+    trackCount++;
+  }
+  console.log(`     ${trackCount} tracks ready`);
 
   console.log("\nSeed complete.\n");
   console.log("Sign in with any of these accounts (development only):");
