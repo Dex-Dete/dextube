@@ -26,6 +26,10 @@ progress-panel edit; `/api/ready` returned 200. Focused Playwright admin
 coverage passed 3/3, including storage accounting, source progress and all ten
 imported entries.
 
+The administrator overview now also reports exact non-deleted user/video
+counts, ready-video count, recorded media-asset bytes, import quota usage, and
+pending/running/failed DB-backed jobs. It contains no placeholder metrics.
+
 ---
 
 ## 1. What DEXTube is

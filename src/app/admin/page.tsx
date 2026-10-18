@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { PageHeader, SectionCard, StatCard, EmptyState } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { formatBytes, formatDateTime } from "@/lib/format";
 import { requireAdminPage } from "@/server/auth/admin";
 import { bootstrapStatus } from "@/server/services/admin-bootstrap";
 import { listAuditLog } from "@/server/services/audit";
+import { getAdminOverviewStats } from "@/server/services/admin-overview";
 
 export const metadata: Metadata = { title: "Administration" };
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export default async function AdminOverviewPage() {
     bootstrapStatus(),
     listAuditLog({ take: AUDIT_TAKE }),
   ]);
+  const stats = await getAdminOverviewStats();
 
   return (
     <>
@@ -50,6 +52,49 @@ export default async function AdminOverviewPage() {
           hint="system_settings switch"
         />
       </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Users" value={stats.users} hint="Non-deleted accounts" />
+        <StatCard label="Videos" value={stats.videos} hint={`${stats.readyVideos} ready`} />
+        <StatCard label="Media storage" value={formatBytes(stats.mediaBytes)} hint="Recorded asset bytes" />
+        <StatCard
+          label="Jobs"
+          value={stats.jobs.pending + stats.jobs.running + stats.jobs.failed}
+          hint={`${stats.jobs.pending} pending · ${stats.jobs.running} running · ${stats.jobs.failed} failed`}
+        />
+      </div>
+
+      <SectionCard
+        className="mt-5"
+        title="Storage and queue health"
+        description="Exact persisted values from media assets, imports and the DB-backed job queue."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-sm font-semibold">Import capacity</p>
+            <p className="mt-1 text-sm text-muted">
+              {formatBytes(stats.importStorage.usedBytes)} used of {formatBytes(stats.importStorage.quotaBytes)}
+            </p>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--dt-line)]">
+              <div
+                className="h-full bg-[var(--dt-accent)]"
+                style={{ width: `${stats.importStorage.quotaBytes ? Math.min(100, (stats.importStorage.usedBytes / stats.importStorage.quotaBytes) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Queue state</p>
+            <p className="mt-1 text-sm text-muted">
+              {stats.jobs.pending} pending · {stats.jobs.running} running · {stats.jobs.failed} failed
+            </p>
+            {stats.jobs.failed > 0 ? (
+              <p className="mt-2 text-sm text-danger">Failed jobs need operator review.</p>
+            ) : (
+              <p className="mt-2 text-sm text-success">No failed jobs recorded.</p>
+            )}
+          </div>
+        </div>
+      </SectionCard>
 
       <SectionCard
         className="mt-5"

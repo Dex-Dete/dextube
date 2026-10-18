@@ -10,6 +10,7 @@ Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 1–9 complete)
 - [x] Public YouTube media bypass deliberately not implemented; authorized creator exports remain the supported media path.
 - [x] Rebuild/restart the local service after the session-5 import-console edit and run the focused browser check.
 - [ ] Add admin storage/queue overview panels beyond import accounting.
+- [x] Add real admin storage/queue overview panels with persisted counts.
 
 ---
 
