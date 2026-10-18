@@ -41,6 +41,7 @@
     "isolated:metadata-test": "NODE_OPTIONS=\"--conditions=react-server\" bash scripts/isolated.sh npx tsx scripts/mrbeast-metadata-test.ts",
     "admin:switch": "NODE_OPTIONS=\"--conditions=react-server\" npx tsx scripts/admin-switch.ts",
     "metadata-test": "NODE_OPTIONS=\"--conditions=react-server\" npx tsx scripts/mrbeast-metadata-test.ts",
+    "reset:development": "NODE_OPTIONS=\"--conditions=react-server\" npx tsx scripts/reset-development.ts",
     "test:admin-bootstrap": "npm run isolated:reset -- --apply --yes --no-backup && bash scripts/isolated.sh npx vitest run tests/integration/admin-bootstrap.test.ts"
   },
   "prisma": {

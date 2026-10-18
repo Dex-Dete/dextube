@@ -12,6 +12,16 @@ internal interfaces may still change between releases.
 
 ### Added
 
+- Guarded development reset (`npm run reset:development`) with dry-run reporting,
+  verified-target checks, required confirmation and backup-first operation; the
+  documented reset leaves only the local administrator when followed by
+  `npm run admin:switch`.
+- Portable `start.sh` and `scripts/install-systemd.sh` for Ubuntu/Fedora
+  `systemctl --user` operation.
+- Administrator job diagnostics and exact storage/queue health metrics.
+- Persistent 0.25×–4× playback-speed preference and honest caption language
+  handling.
+
 - Initial project scaffold: a Next.js 16 (App Router) + React 19 + TypeScript
   modular monolith targeting Fedora Linux first while remaining portable.
 - Prisma schema (24 models and 11 enums) applied as six versioned migrations:

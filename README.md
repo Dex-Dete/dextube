@@ -84,6 +84,21 @@ npm run dev            # http://localhost:3000
 npm run build && npm start
 ```
 
+### systemd launcher (Ubuntu and Fedora)
+
+The repository includes a portable user-systemd installer. It uses the same
+`systemctl --user` interface on Ubuntu and Fedora and does not require sudo:
+
+```bash
+./start.sh --systemd-install
+systemctl --user status dextube.service
+./start.sh --systemd-restart
+```
+
+For a one-shot bootstrap without systemd, use `./start.sh` or
+`./start.sh --prod`. The installer builds before enabling the service and reads
+the checkout's `.env`.
+
 Verify your machine at any point with the preflight diagnostic:
 
 ```bash

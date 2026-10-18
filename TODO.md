@@ -4,6 +4,10 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
 Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 1–9 complete)
 
+## Session 6
+- [x] Guarded development wipe executed after backup; only the local admin remains.
+- [x] Add portable root launcher and Ubuntu/Fedora user-systemd installer.
+
 ## Session 5 follow-up
 - [x] Admin import console displays real item progress and exact copied-byte/quota accounting.
 - [x] Metadata-only wording distinguishes an expected rights/source limitation from an error.

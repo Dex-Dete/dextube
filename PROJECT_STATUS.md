@@ -4,7 +4,20 @@
 > completed work, exact test results, known bugs, and the exact next action.
 > Companion file: [`TODO.md`](./TODO.md).
 
-_Last updated: 2026-10-18 (session 5)_
+_Last updated: 2026-10-18 (session 6)_
+
+## Session 6 — verified development wipe and portable launcher
+
+The explicitly requested development reset was executed after a dry run and a
+backup at `storage/backups/dextube-20261018-230727`. The development database
+and `storage/media` were wiped with guarded `TRUNCATE ... CASCADE` and scoped
+media deletion. Only the recreated local `admin` account remains; no videos,
+imports, playlists, comments, sessions or test accounts remain. `Admintruefalse.md`
+is still the operator switch.
+
+Added root `start.sh` and `scripts/install-systemd.sh` for Ubuntu/Fedora
+`systemctl --user` operation. The installer builds the app, installs a
+per-user unit, and starts/restarts it without distro-specific commands.
 
 ## Session 5 — admin/import verification
 
