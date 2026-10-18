@@ -481,6 +481,14 @@ export interface WatchVideo {
   isPlayable: boolean;
 }
 
+/** Extract a declared BCP-47-ish language token without inventing one. */
+function captionLanguageFromLabel(label: string | null): string {
+  if (!label) return "und";
+  const matches = label.match(/\b[a-z]{2,3}(?:[-_][A-Z]{2})?\b/gi);
+  const value = matches?.at(-1);
+  return value ? value.replace("_", "-") : "und";
+}
+
 /**
  * Loads a video for the watch page, enforcing visibility.
  * Anything not visible to this viewer results in a 404 (not a 403) so private
@@ -606,7 +614,7 @@ export async function getVideoForWatch(
         .map((asset) => ({
           label: asset.label ?? "Captions",
           key: asset.storageKey,
-          lang: asset.label?.slice(-2) ?? "en",
+           lang: captionLanguageFromLabel(asset.label),
         })) ?? [],
     // Progressive renditions, tallest first. Empty for videos processed before
     // multi-rendition output existed, or when the source is already the

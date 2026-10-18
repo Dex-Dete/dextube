@@ -38,6 +38,10 @@ Added `/admin/jobs`, a server-gated diagnostics page listing real DB-backed job
 types, states, attempts, schedules and failure messages. The admin browser
 workflow now covers Overview, Users, System, Jobs and Import.
 
+Caption language handling now preserves a declared language token from imported
+caption labels and uses `und` when none is declared, rather than defaulting to
+an invented `en`. The no-track browser path was reverified after the build.
+
 ---
 
 ## 1. What DEXTube is

@@ -20,7 +20,7 @@ The implementation is `src/components/watch/VideoPlayer.tsx`, with the icons in
   styled or extended consistently across browsers.
 * **Controls**: play/pause, a seek bar with buffered progress drawn behind it,
   elapsed/total time (click to switch to time remaining; the choice persists),
-  mute and volume, playback speed (0.25×–2×), quality, captions, autoplay,
+   mute and volume, playback speed (0.25×–4×), quality, captions, autoplay,
   picture-in-picture, fullscreen, and a keyboard-shortcut dialog.
 * **Buffered progress** is drawn from the element's real `TimeRanges`
   (`computeBufferedRanges()`), one bar per buffered range, updated on `progress`,
@@ -50,8 +50,10 @@ The implementation is `src/components/watch/VideoPlayer.tsx`, with the icons in
   `aria-label="Seek"` and `aria-valuemax` set to the element's actual duration;
   the settings menus are `role="menu"` with `menuitem` / `menuitemradio`
   children; every icon button has an `aria-label`.
-* **Captions** come from the video's `CAPTION` tracks. There are no generated or
-  guessed captions (see the caption bullet above for how the menu is built).
+* **Captions** come from the video's `CAPTION` tracks. A declared language code
+  is preserved; otherwise the track uses `und` rather than an invented language.
+  There are no generated or guessed captions (see the caption bullet above for
+  how the menu is built).
 
 ## 2. Quality switching is manual, and says so
 
