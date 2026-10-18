@@ -34,6 +34,10 @@ The player now exposes genuine 0.25× through 4× playback speeds and persists
 the selected speed per browser. The 4× choice was verified by reading the real
 HTMLMediaElement `playbackRate` after selection and after reload.
 
+Added `/admin/jobs`, a server-gated diagnostics page listing real DB-backed job
+types, states, attempts, schedules and failure messages. The admin browser
+workflow now covers Overview, Users, System, Jobs and Import.
+
 ---
 
 ## 1. What DEXTube is

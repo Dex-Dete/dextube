@@ -13,6 +13,7 @@ const NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/import", label: "Import" },
+  { href: "/admin/jobs", label: "Jobs" },
   { href: "/admin/system", label: "System" },
 ];
 

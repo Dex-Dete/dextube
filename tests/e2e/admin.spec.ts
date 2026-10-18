@@ -61,7 +61,7 @@ async function signInAsAdmin(context: import("@playwright/test").BrowserContext,
   expect(response.ok(), `administrator sign-in returned ${response.status()}`).toBeTruthy();
 }
 
-const ADMIN_PAGES = ["/admin", "/admin/users", "/admin/system", "/admin/import"] as const;
+const ADMIN_PAGES = ["/admin", "/admin/users", "/admin/system", "/admin/import", "/admin/jobs"] as const;
 /** Phrases that only exist on a rendered administrator page. */
 const ADMIN_ONLY_PHRASES = [
   "Administration overview",
@@ -160,6 +160,9 @@ test.describe("administrator pages", () => {
 
       await page.goto("/admin/system");
       await expect(page.getByRole("heading", { name: "System settings" })).toBeVisible();
+
+      await page.goto("/admin/jobs");
+      await expect(page.getByRole("heading", { name: "Processing jobs" })).toBeVisible();
 
       // The import page, showing the real imported channel.
       await page.goto("/admin/import");
