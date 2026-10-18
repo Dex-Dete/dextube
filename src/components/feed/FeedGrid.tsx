@@ -39,6 +39,12 @@ export interface FeedGridProps {
    * what is shown.
    */
   recommendationControls?: boolean;
+  /**
+   * Heading for the list itself. A page that does not otherwise provide one
+   * passes this so the card titles (`h3`) have an `h2` above them instead of
+   * following the page's `h1` directly.
+   */
+  sectionLabel?: string;
 }
 
 /**
@@ -60,6 +66,7 @@ export function FeedGrid({
   columns = 3,
   variant = "grid",
   recommendationControls = false,
+  sectionLabel,
 }: FeedGridProps) {
   const [items, setItems] = useState(initialItems);
   const [cursor, setCursor] = useState(initialCursor);
@@ -142,6 +149,9 @@ export function FeedGrid({
 
   return (
     <div>
+      {sectionLabel && variant !== "grouped" && (
+        <h2 className="mb-3 text-[15px] font-semibold">{sectionLabel}</h2>
+      )}
       {variant === "ranked" ? (
         <RankedList items={items} />
       ) : variant === "grouped" ? (
@@ -242,9 +252,11 @@ function GroupedByChannel({
               <Avatar name={channel.name} seed={channel.id} src={mediaUrl(channel.avatarKey)} size={36} />
             </Link>
             <div className="min-w-0">
-              <Link href={`/channel/${channel.handle}`} className="block truncate font-semibold hover:text-brand">
-                {channel.name}
-              </Link>
+              <h2 className="truncate text-base font-semibold">
+                <Link href={`/channel/${channel.handle}`} className="hover:text-brand">
+                  {channel.name}
+                </Link>
+              </h2>
               <p className="text-xs text-subtle">
                 {videos.length} {videos.length === 1 ? "video" : "videos"}
               </p>

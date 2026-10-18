@@ -121,7 +121,10 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link href={`/channel/${video.channel.handle}`}>
+            {/* The avatar is decorative: the link below carries the same
+                destination and the channel name, so hiding this one from
+                assistive technology avoids announcing an unlabelled link. */}
+            <Link href={`/channel/${video.channel.handle}`} aria-hidden="true" tabIndex={-1}>
               <Avatar name={video.channel.name} seed={video.channel.id} src={mediaUrl(video.channel.avatarKey)} size={40} />
             </Link>
             <div className="min-w-0">

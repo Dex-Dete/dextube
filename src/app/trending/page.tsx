@@ -41,6 +41,7 @@ export default async function TrendingPage() {
         endpoint="/api/feed?tab=trending"
         limit={24}
         variant="ranked"
+        sectionLabel="Top videos"
         emptyState={
           <EmptyState
             icon={<SparkIcon size={20} />}

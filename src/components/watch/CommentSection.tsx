@@ -490,7 +490,14 @@ function CommentItem({
       className={`flex gap-3 rounded-lg ${highlighted ? "ring-2 ring-offset-2" : ""}`}
       style={highlighted ? { boxShadow: "0 0 0 2px var(--dt-accent)" } : undefined}
     >
-      <Link href={comment.author.handle ? `/channel/${comment.author.handle}` : "#"} className="shrink-0" tabIndex={-1}>
+      {/* The avatar duplicates the author link below it; it is removed from the
+          tab order and hidden from assistive technology for the same reason. */}
+      <Link
+        href={comment.author.handle ? `/channel/${comment.author.handle}` : "#"}
+        className="shrink-0"
+        tabIndex={-1}
+        aria-hidden="true"
+      >
         <Avatar name={comment.author.displayName} seed={comment.author.id} src={mediaUrl(comment.author.avatarKey)} size={40} />
       </Link>
 

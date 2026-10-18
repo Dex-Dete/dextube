@@ -64,7 +64,7 @@ export function MusicLibrary({ initialTracks, initialNextOffset }: MusicLibraryP
           return (
             <li
               key={track.id}
-              className="dt-card-hover flex items-center gap-3 rounded-xl border p-3"
+              className="dt-card-hover flex flex-wrap items-center gap-3 rounded-xl border p-3"
               style={{ borderColor: "var(--dt-line)", background: "var(--dt-surface)" }}
             >
               <button

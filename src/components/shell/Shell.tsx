@@ -136,7 +136,14 @@ export function Shell({ viewer, subscriptions, unreadNotifications, children }: 
         style={{ ["--dt-sidebar-current" as string]: expanded ? "var(--dt-sidebar-w)" : "var(--dt-sidebar-w-rail)" }}
       >
         <div className="lg:pl-[var(--dt-sidebar-current)]">
-          <main id="main-content" className="min-h-[calc(100vh-var(--dt-header-h))]">
+          {/* `tabIndex={-1}` makes the skip link actually move focus here rather
+              than only scrolling; the outline is suppressed because focusing a
+              whole landmark would draw a ring around the page. */}
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="min-h-[calc(100vh-var(--dt-header-h))] focus:outline-none"
+          >
             {children}
           </main>
         </div>

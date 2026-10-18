@@ -85,6 +85,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         endpoint={category ? `/api/feed?tab=home&category=${encodeURIComponent(category)}` : "/api/feed?tab=home"}
         limit={24}
         recommendationControls={Boolean(user) && !category}
+        sectionLabel={category ? `${category} videos` : "Videos"}
         emptyState={category ? <CategoryEmpty category={category} /> : <HomeEmpty signedIn={Boolean(user)} />}
       />
     </div>

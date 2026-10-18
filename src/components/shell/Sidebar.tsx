@@ -163,8 +163,11 @@ function NavSection({
 
 function SectionTitle({ label, rail }: { label: string; rail: boolean }) {
   if (rail) return null;
+  // A navigation group label, not a document heading: the `<nav>` landmark is
+  // already labelled, and an `h2` here would appear before the page's `h1` in
+  // the outline and make every page skip a heading level.
   return (
-    <h2 className="px-5 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</h2>
+    <p className="px-5 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-subtle">{label}</p>
   );
 }
 

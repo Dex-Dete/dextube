@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–7)
+Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–8)
 
 ---
 
@@ -20,7 +20,7 @@ unit/integration tests and the browser suite before it is considered done.
 | 5 | Studio: real aggregates, paginated table, bulk ops, moderation | `[x]` |
 | 6 | DEX Music: rights metadata, no fabricated catalogue | `[x]` |
 | 7 | Measured performance, indexes, health/readiness, recovery docs | `[x]` |
-| 8 | Automated coverage for player / recsys / studio / music / authz / jobs | `[~]` |
+| 8 | Automated coverage for player / recsys / studio / music / authz / jobs | `[x]` |
 | 9 | Documentation and session continuity | `[~]` |
 
 ### Phase 2 — design system
@@ -79,6 +79,17 @@ unit/integration tests and the browser suite before it is considered done.
 - [x] `tests/integration/performance.test.ts` asserts real statement counts: one `INSERT` per table for a 3-video rollup, dashboard cost independent of video count, bounded feed pages
 - [x] Index inventory + query plans documented (including the honest note that a 10-row table is correctly sequentially scanned)
 - [x] Recovery documented: backup/restore, retryable failed media, self-healing rollups
+
+### Phase 8 — automated coverage
+- [x] Player: 6 browser tests driving the real element (playback, renditions, quality switch, speed, keyboard, resume, single rendition)
+- [x] Recommender: 23 unit tests for the scoring rules plus 4 integration tests against the real database (dismissal, hidden channel, reset, idempotency, cold start, deterministic paging)
+- [x] Studio: rollup path equals the raw path, soft-deleted comments excluded, page size capped
+- [x] Music: download authorisation unit + integration, and a browser test that plays real audio and proves the streaming-only licence offers no download control
+- [x] Authz: fail-closed ownership, same-origin enforcement, private media refused to anonymous viewers
+- [x] Jobs: scheduler coverage and the statement-count regressions in `performance.test.ts`
+- [x] Accessibility/responsive: 5 browser tests over the key pages at 375px and 1280px
+- [x] Six real defects found by that audit and fixed (CSS layer, sidebar `h2`, missing section headings, unlabelled avatar links, mobile overflow, skip-link focus)
+
 
 
 
@@ -171,8 +182,8 @@ unit/integration tests and the browser suite before it is considered done.
 ## Phase 9 — Acceptance run
 - [x] `npx tsc --noEmit` clean
 - [x] `npm run lint` → 0 problems
-- [x] `npm test` → 8 files / 61 tests passing (now 14 files / 109 tests)
-- [x] `npm run test:e2e` → 3 tests passing, twice back-to-back (repeatable; now 11 browser tests)
+- [x] `npm test` → 8 files / 61 tests passing (now 15 files / 113 tests)
+- [x] `npm run test:e2e` → 3 tests passing, twice back-to-back (repeatable; now 16 browser tests)
 - [x] Fresh-machine documented startup (database up → migrate deploy → seed → dev)
 - [x] All §19 acceptance steps executed and recorded in `PROJECT_STATUS.md`
 - [x] Production build (`npm run build`) + `npm start` smoke test; e2e re-run against the production build

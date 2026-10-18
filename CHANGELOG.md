@@ -105,6 +105,15 @@ internal interfaces may still change between releases.
   separate from `/api/health` because health spawns FFmpeg and FFprobe.
 - `docs/performance.md`: measured route latency, statement counts, bundle and
   payload sizes, the index inventory with query plans, and the recovery story.
+- `tests/integration/recsys.test.ts`, which drives the recommender against the
+  real database: a dismissed video and a hidden channel disappear from the feed,
+  reset brings both back, repeated feedback stays idempotent, a viewer with no
+  signals is reported as `trending-recent` rather than as "personalised", and
+  paging through the feed neither repeats nor drops a video.
+- `tests/e2e/accessibility.spec.ts`, which audits the key pages at 375px and
+  1280px for accessible names, `alt` attributes, one `h1` per page, heading
+  levels that never skip, horizontal overflow, reduced motion, and a keyboard
+  reachable navigation drawer.
 - `tests/integration/performance.test.ts`, which counts real SQL statements
   through Prisma's query event and asserts that the rollup rebuild is one
   `INSERT` per table, that the Studio dashboard costs the same however many
@@ -184,6 +193,27 @@ internal interfaces may still change between releases.
   so a late-arriving event is still picked up on the next run.
 - The Studio's top-video lookup uses one map instead of a `find` inside a loop
   over the same list.
+- **Tailwind's `hidden` was being overridden, so desktop-only buttons appeared
+  on phones.** The custom `.dt-btn` / `.dt-badge` / `.dt-alert` rules were
+  unlayered, and unlayered CSS beats *every* Tailwind layer, so `display:
+  inline-flex` defeated the `hidden sm:inline-flex` utility. The component
+  classes now live in `@layer components`, which is what makes the utilities
+  overridable again. This also fixed `.dt-alert ... flex`, which had been
+  silently rendering as a block.
+- **The shell sidebar contributed an `h2` before every page's `h1`.** The
+  navigation group labels are now plain text, so the document outline starts
+  with the page's own `h1`.
+- **The home and trending feeds went straight from `h1` to the card `h3`s.**
+  `FeedGrid` takes a `sectionLabel` and renders an `h2` above the list, and the
+  Subscriptions surface promotes each channel name to its own `h2`.
+- **Avatar links were unlabelled.** On the watch page and in comments, the
+  avatar duplicates an adjacent link to the same channel, so it is now
+  `aria-hidden` and removed from the tab order instead of being announced as a
+  link with no name.
+- **The music list scrolled sideways on a phone**, because the licence badge
+  could not shrink or wrap. The row now wraps.
+- **The skip link only scrolled.** `<main>` is a focus target, so continuing to
+  Tab now carries on inside the content.
 - **`/api/health` no longer discloses the host to anonymous callers.** It is
   unauthenticated, so it now reports the storage driver but not the absolute
   storage root, and omits the advertised URL; both are available with

@@ -410,8 +410,8 @@ Authenticated (session cookie): `/studio`, `/studio/videos`, `/studio/analytics`
 
 ## 9. Next action (resume here)
 
-**DEXTube 2.0 mission is in progress.** Phases 2–7 are complete and verified;
-phases 8–9 remain. See §11 for the phase-by-phase record.
+**DEXTube 2.0 mission is in progress.** Phases 2–8 are complete and verified;
+phase 9 (final documentation) remains. See §11 for the phase-by-phase record.
 
 ---
 
@@ -448,7 +448,7 @@ phases 8–9 remain. See §11 for the phase-by-phase record.
 ## 11. DEXTube 2.0 (mission log)
 
 The mission is an audit-then-rebuild pass over nine areas, each landing as a
-tested milestone. Phases 2–7 are done; the rest are pending.
+tested milestone. Phases 2–8 are done; phase 9 is documentation.
 
 ### Status
 
@@ -461,7 +461,7 @@ tested milestone. Phases 2–7 are done; the rest are pending.
 | 5 | Studio (analytics, content table, bulk ops, moderation) | ✅ done |
 | 6 | DEX Music (rights metadata, no fabricated catalogue) | ✅ done |
 | 7 | Measured performance, indexes, health/readiness | ✅ done |
-| 8 | Automated coverage (unit + integration + browser) | 🟡 partially done (player and recommender covered) |
+| 8 | Automated coverage (unit + integration + browser) | ✅ done |
 | 9 | Documentation and session continuity | 🟡 this file, `TODO.md`, `CHANGELOG.md` |
 
 ### Phase 3 — the player
@@ -656,13 +656,32 @@ commands to reproduce them are in `docs/performance.md`.
 * **Recovery is documented**: backup/restore, retryable failed media, and
   self-healing daily rollups (see `docs/performance.md` §7).
 
+### Phase 8 — automated coverage
+
+| Area | Where | What it proves |
+| --- | --- | --- |
+| Player | `tests/e2e/player.spec.ts` (6) | Real playback, the real rendition list, manual quality switching that keeps the playhead, speed, keyboard control, resume, and the single-rendition case |
+| Recommender | `tests/unit/recsys-ranking.test.ts` (23), `tests/integration/recsys.test.ts` (4) | The scoring rules in isolation, then dismissal / hidden channel / reset against the real database, idempotent feedback, honest cold-start labelling, and paging that neither repeats nor drops |
+| Studio | `tests/integration/studio.test.ts` (6) | Rollup reads equal a direct raw query, soft-deleted comments excluded, page sizes capped |
+| Music | `tests/unit/music-download.test.ts`, `tests/integration/music.test.ts`, `tests/e2e/music.spec.ts` | Download allowed only when the rights say so, refused end to end and hidden from the library, real audio playback that survives navigation |
+| Authz | `tests/integration/account-flow.test.ts`, auth and cross-origin checks in the browser suite, the bulk-action and reports checks | Fail-closed ownership, same-origin enforcement, private media refused |
+| Jobs | `tests/integration/scheduler.test.ts`, `tests/integration/performance.test.ts` | Scheduler behaviour, and statement counts proving the rollup is set-based and the dashboard is bounded |
+| Accessibility / responsive | `tests/e2e/accessibility.spec.ts` (5) | Accessible names, image `alt`, one `h1`, no skipped heading levels, no horizontal overflow at 375px and 1280px, reduced motion, keyboard-reachable navigation |
+
+Writing the accessibility audit found six real defects, all now fixed and
+recorded in `CHANGELOG.md`: Tailwind `hidden` being overridden by an unlayered
+component class (so desktop-only header buttons showed on phones), a sidebar `h2`
+before every page's `h1`, missing section headings above the home and trending
+grids, unlabelled avatar links on the watch page and in comments, sideways scroll
+in the music list on a phone, and a skip link that scrolled without moving focus.
+
 ### Test evidence (current)
 
 | Suite | Result |
 | --- | --- |
 | `npm run lint` (ESLint CLI over the whole tree) | clean |
 | `npm test` (unit + integration) | 13 files, 105 tests passing |
-| `npx playwright test` (real Chromium against the production build) | 9 tests passing, three consecutive clean runs |
+| `npx playwright test` (real Chromium against the production build) | 16 tests passing |
 | `npm run build` | compiles; the client bundle is unchanged in size by the player work |
 
 The value judgement on attention, framing and classification applies to the whole

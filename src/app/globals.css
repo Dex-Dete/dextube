@@ -341,179 +341,186 @@ svg {
    Buttons
    ========================================================================== */
 
-.dt-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 0.15s var(--dt-ease), border-color 0.15s var(--dt-ease),
-    color 0.15s var(--dt-ease), opacity 0.15s var(--dt-ease);
-}
-.dt-btn:disabled,
-.dt-btn[aria-disabled="true"] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 
-.dt-btn-primary {
-  background: var(--dt-brand);
-  color: var(--dt-brand-contrast);
-}
-.dt-btn-primary:hover:not(:disabled) {
-  background: var(--dt-brand-hover);
-}
+/* Component classes live in the `components` layer so Tailwind utilities can
+ * still override them — an unlayered `.dt-btn { display: inline-flex }` beats
+ * `hidden` / `flex` from the utilities layer, which silently broke responsive
+ * display rules. */
+@layer components {
+  .dt-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s var(--dt-ease), border-color 0.15s var(--dt-ease),
+      color 0.15s var(--dt-ease), opacity 0.15s var(--dt-ease);
+  }
+  .dt-btn:disabled,
+  .dt-btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 
-.dt-btn-secondary {
-  background: var(--dt-surface-2);
-  color: var(--dt-fg);
-}
-.dt-btn-secondary:hover:not(:disabled) {
-  background: var(--dt-surface-3);
-}
+  .dt-btn-primary {
+    background: var(--dt-brand);
+    color: var(--dt-brand-contrast);
+  }
+  .dt-btn-primary:hover:not(:disabled) {
+    background: var(--dt-brand-hover);
+  }
 
-.dt-btn-outline {
-  background: transparent;
-  color: var(--dt-fg);
-  border-color: var(--dt-line-strong);
-}
-.dt-btn-outline:hover:not(:disabled) {
-  background: var(--dt-surface-2);
-}
+  .dt-btn-secondary {
+    background: var(--dt-surface-2);
+    color: var(--dt-fg);
+  }
+  .dt-btn-secondary:hover:not(:disabled) {
+    background: var(--dt-surface-3);
+  }
 
-.dt-btn-ghost {
-  background: transparent;
-  color: var(--dt-fg);
-}
-.dt-btn-ghost:hover:not(:disabled) {
-  background: var(--dt-surface-2);
-}
+  .dt-btn-outline {
+    background: transparent;
+    color: var(--dt-fg);
+    border-color: var(--dt-line-strong);
+  }
+  .dt-btn-outline:hover:not(:disabled) {
+    background: var(--dt-surface-2);
+  }
 
-.dt-btn-danger {
-  background: var(--dt-danger);
-  color: #fff;
-}
-.dt-btn-danger:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
+  .dt-btn-ghost {
+    background: transparent;
+    color: var(--dt-fg);
+  }
+  .dt-btn-ghost:hover:not(:disabled) {
+    background: var(--dt-surface-2);
+  }
 
-/* Circular icon button (header controls, player controls) */
-.dt-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--dt-fg);
-  cursor: pointer;
-  transition: background-color 0.15s var(--dt-ease);
-}
-.dt-icon-btn:hover {
-  background: var(--dt-surface-2);
-}
+  .dt-btn-danger {
+    background: var(--dt-danger);
+    color: #fff;
+  }
+  .dt-btn-danger:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
 
-/* ==========================================================================
-   Menus, badges, misc
-   ========================================================================== */
+  /* Circular icon button (header controls, player controls) */
+  .dt-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--dt-fg);
+    cursor: pointer;
+    transition: background-color 0.15s var(--dt-ease);
+  }
+  .dt-icon-btn:hover {
+    background: var(--dt-surface-2);
+  }
 
-.dt-menu {
-  min-width: 220px;
-  padding: 6px;
-  background: var(--dt-surface);
-  border: 1px solid var(--dt-line);
-  border-radius: var(--dt-radius-md);
-  box-shadow: var(--dt-shadow-lg);
-}
-.dt-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 10px;
-  border: none;
-  background: transparent;
-  border-radius: var(--dt-radius-sm);
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
-  color: var(--dt-fg);
-}
-.dt-menu-item:hover {
-  background: var(--dt-surface-2);
-}
-.dt-menu-sep {
-  height: 1px;
-  margin: 6px 4px;
-  background: var(--dt-line);
-}
+  /* ==========================================================================
+     Menus, badges, misc
+     ========================================================================== */
 
-.dt-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--dt-surface-2);
-  color: var(--dt-fg-muted);
-}
-.dt-badge-brand {
-  background: var(--dt-brand-soft);
-  color: var(--dt-brand);
-}
-.dt-badge-danger {
-  background: var(--dt-danger-soft);
-  color: var(--dt-danger);
-}
-.dt-badge-success {
-  background: var(--dt-success-soft);
-  color: var(--dt-success);
-}
-.dt-badge-warning {
-  background: var(--dt-warning-soft);
-  color: var(--dt-warning);
-}
+  .dt-menu {
+    min-width: 220px;
+    padding: 6px;
+    background: var(--dt-surface);
+    border: 1px solid var(--dt-line);
+    border-radius: var(--dt-radius-md);
+    box-shadow: var(--dt-shadow-lg);
+  }
+  .dt-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    background: transparent;
+    border-radius: var(--dt-radius-sm);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    color: var(--dt-fg);
+  }
+  .dt-menu-item:hover {
+    background: var(--dt-surface-2);
+  }
+  .dt-menu-sep {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--dt-line);
+  }
 
-.dt-alert {
-  display: flex;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--dt-radius-md);
-  font-size: 13px;
-  border: 1px solid transparent;
-}
-.dt-alert-error {
-  background: var(--dt-danger-soft);
-  border-color: color-mix(in srgb, var(--dt-danger) 35%, transparent);
-  color: var(--dt-danger);
-}
-.dt-alert-success {
-  background: var(--dt-success-soft);
-  border-color: color-mix(in srgb, var(--dt-success) 35%, transparent);
-  color: var(--dt-success);
-}
-.dt-alert-info {
-  background: var(--dt-info-soft);
-  border-color: color-mix(in srgb, var(--dt-brand) 25%, transparent);
-  color: var(--dt-fg);
-}
+  .dt-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--dt-surface-2);
+    color: var(--dt-fg-muted);
+  }
+  .dt-badge-brand {
+    background: var(--dt-brand-soft);
+    color: var(--dt-brand);
+  }
+  .dt-badge-danger {
+    background: var(--dt-danger-soft);
+    color: var(--dt-danger);
+  }
+  .dt-badge-success {
+    background: var(--dt-success-soft);
+    color: var(--dt-success);
+  }
+  .dt-badge-warning {
+    background: var(--dt-warning-soft);
+    color: var(--dt-warning);
+  }
 
-.dt-link {
-  color: var(--dt-brand);
-  font-weight: 600;
-}
-.dt-link:hover {
-  text-decoration: underline;
+  .dt-alert {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--dt-radius-md);
+    font-size: 13px;
+    border: 1px solid transparent;
+  }
+  .dt-alert-error {
+    background: var(--dt-danger-soft);
+    border-color: color-mix(in srgb, var(--dt-danger) 35%, transparent);
+    color: var(--dt-danger);
+  }
+  .dt-alert-success {
+    background: var(--dt-success-soft);
+    border-color: color-mix(in srgb, var(--dt-success) 35%, transparent);
+    color: var(--dt-success);
+  }
+  .dt-alert-info {
+    background: var(--dt-info-soft);
+    border-color: color-mix(in srgb, var(--dt-brand) 25%, transparent);
+    color: var(--dt-fg);
+  }
+
+  .dt-link {
+    color: var(--dt-brand);
+    font-weight: 600;
+  }
+  .dt-link:hover {
+    text-decoration: underline;
+  }
 }
 
 /* Hover-reveal overlay used by video cards and Shorts */
