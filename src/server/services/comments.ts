@@ -27,6 +27,13 @@ const log = logger.child({ mod: "comments" });
 /** Replies shown inline under a top-level comment before "view all". */
 export const REPLY_PREVIEW_COUNT = 2;
 
+/**
+ * The moderation queue is paginated and capped in the service as well as in the
+ * request schema, so it can never be asked for an unbounded number of reports.
+ */
+export const REPORT_PAGE_SIZE_DEFAULT = 20;
+export const REPORT_PAGE_SIZE_MAX = 50;
+
 export type CommentSort = "top" | "newest";
 
 export interface CommentAuthor {
@@ -576,8 +583,36 @@ export async function reportComment(
   return { reported: true };
 }
 
-/** Moderation queue for one video. */
-export async function listReportedComments(videoId: string, viewer: ViewerContext) {
+export interface ReportedCommentView {
+  id: string;
+  reason: string;
+  createdAt: string;
+  reporter: { id: string; username: string; displayName: string };
+  comment: CommentView;
+}
+
+export interface ReportedCommentPage {
+  items: ReportedCommentView[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+/**
+ * Moderation queue for one video.
+ *
+ * Only the video's owner (or a moderator) may read it — the same ownership
+ * check guards `setCommentHidden`/`setCommentPinned`, so a creator can never
+ * act on a comment belonging to another channel. Pagination has a documented
+ * cap (`REPORT_PAGE_SIZE_MAX`) and a stable `(createdAt, id)` tiebreak so pages
+ * do not overlap or skip when reports share a timestamp.
+ */
+export async function listReportedComments(
+  videoId: string,
+  viewer: ViewerContext,
+  options: { page?: number; pageSize?: number } = {},
+): Promise<ReportedCommentPage> {
   const video = await prisma.video.findUnique({
     where: { id: videoId },
     select: { channelId: true },
@@ -587,24 +622,38 @@ export async function listReportedComments(videoId: string, viewer: ViewerContex
   const isModerator = Boolean(viewer.role && viewer.role !== "USER");
   if (!isVideoOwner && !isModerator) throw forbidden("Only the video's owner can review reports.");
 
-  const reports = await prisma.commentReport.findMany({
-    where: { comment: { videoId }, status: "OPEN" },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      reason: true,
-      createdAt: true,
-      reporter: { select: { id: true, username: true, displayName: true } },
-      comment: { select: COMMENT_SELECT },
-    },
-  });
+  const pageSize = Math.min(REPORT_PAGE_SIZE_MAX, Math.max(1, Math.trunc(options.pageSize ?? REPORT_PAGE_SIZE_DEFAULT)));
+  const page = Math.max(1, Math.trunc(options.page ?? 1));
+  const where: Prisma.CommentReportWhereInput = { comment: { videoId }, status: "OPEN" };
 
-  return reports.map((report) => ({
-    id: report.id,
-    reason: report.reason,
-    createdAt: report.createdAt.toISOString(),
-    reporter: report.reporter,
-    comment: toView(report.comment, viewer, video.channelId),
-  }));
+  const [total, reports] = await Promise.all([
+    prisma.commentReport.count({ where }),
+    prisma.commentReport.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        reason: true,
+        createdAt: true,
+        reporter: { select: { id: true, username: true, displayName: true } },
+        comment: { select: COMMENT_SELECT },
+      },
+    }),
+  ]);
+
+  return {
+    items: reports.map((report) => ({
+      id: report.id,
+      reason: report.reason,
+      createdAt: report.createdAt.toISOString(),
+      reporter: report.reporter,
+      comment: toView(report.comment, viewer, video.channelId),
+    })),
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }

@@ -9,6 +9,7 @@ import {
   type StudioOverview,
 } from "@/server/services/analytics";
 import { Avatar } from "@/components/Avatar";
+import { EmptyState } from "@/components/ui";
 import { mediaUrl } from "@/lib/media-url";
 import { formatCount, formatDate, formatWatchTime } from "@/lib/format";
 import {
@@ -210,7 +211,12 @@ export default async function StudioDashboardPage({
           <p className="mt-0.5 text-xs text-subtle">{rangeLabel}</p>
 
           {overview.topVideos.length === 0 ? (
-            <p className="mt-3 text-sm text-subtle">No views in this range yet.</p>
+            <EmptyState
+              variant="inline"
+              className="mt-2"
+              title="No views in this range"
+              description="Once your videos get views, the top performers for the selected range appear here."
+            />
           ) : (
             <ol className="mt-3 flex flex-col gap-3">
               {overview.topVideos.map((video, index) => (
@@ -271,16 +277,17 @@ export default async function StudioDashboardPage({
       </section>
 
       {!hasVideos && (
-        <div className="dt-card mt-5 flex flex-col items-center gap-3 px-6 py-12 text-center">
-          <UploadIcon size={36} />
-          <h2 className="text-lg font-bold">No videos yet</h2>
-          <p className="max-w-md text-sm text-muted">
-            Upload your first video and its views, watch time and subscribers will start showing up here within a day.
-          </p>
-          <Link href="/studio/upload" className="dt-btn dt-btn-primary">
-            Upload a video
-          </Link>
-        </div>
+        <EmptyState
+          className="mt-5"
+          icon={<UploadIcon size={20} />}
+          title="No videos yet"
+          description="Upload your first video and its views, watch time and subscribers will start showing up here within a day."
+          actions={
+            <Link href="/studio/upload" className="dt-btn dt-btn-primary">
+              Upload a video
+            </Link>
+          }
+        />
       )}
     </div>
   );

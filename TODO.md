@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-Last updated: 2026-10-18 (session 4 — DEXTube 2.0)
+Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–5)
 
 ---
 
@@ -17,7 +17,7 @@ unit/integration tests and the browser suite before it is considered done.
 | 2 | Design system, shareable primitives, per-surface layouts | `[x]` |
 | 3 | Professional video player on real media primitives | `[x]` |
 | 4 | Recommendations: versioned weights, diversity, feedback | `[x]` |
-| 5 | Studio: real aggregates, paginated table, bulk ops, moderation | `[ ]` |
+| 5 | Studio: real aggregates, paginated table, bulk ops, moderation | `[x]` |
 | 6 | DEX Music: rights metadata, no fabricated catalogue | `[ ]` |
 | 7 | Measured performance, indexes, health/readiness, recovery docs | `[ ]` |
 | 8 | Automated coverage for player / recsys / studio / music / authz / jobs | `[~]` |
@@ -50,6 +50,17 @@ unit/integration tests and the browser suite before it is considered done.
 - [x] Bounded signal queries; history-derived signals gated on `saveWatchHistory`
 - [x] Dev-only diagnostics logging; `rankingVersion` and strategy exposed in the feed response
 - [x] Fixed: `category`/`tags`/`language` no longer dropped, so the interest signal actually fires
+
+### Phase 5 — Studio
+- [x] Analytics reads the `VideoDailyStat` / `ChannelDailyStat` rollups for history and raw events only for today; one shared helper per path so they cannot drift
+- [x] Rollup writes are set-based (`INSERT ... ON CONFLICT`): two statements per day instead of one `upsert` per video
+- [x] Top-video lookup is a map, not a `find` inside a loop
+- [x] Content table: sorting (published / views / title) with a stable tiebreak, and pagination capped at 50 per page and rejected above it
+- [x] Bulk publish / unpublish / soft-delete, ≤100 ids, authorised per id with partial results reported; delete confirmed in the UI
+- [x] Retry for a video whose processing failed, through the existing job queue
+- [x] Moderation (reported comments) paginated and owner-scoped
+- [x] Route-level loading skeletons and error boundaries under `/studio`; `EmptyState` on empty Studio panels
+- [x] `tests/integration/studio.test.ts`: rollup path equals the raw path, soft-deleted comments excluded, page size capped
 
 ---
 
@@ -140,8 +151,8 @@ unit/integration tests and the browser suite before it is considered done.
 ## Phase 9 — Acceptance run
 - [x] `npx tsc --noEmit` clean
 - [x] `npm run lint` → 0 problems
-- [x] `npm test` → 8 files / 61 tests passing (now 10 files / 89 tests)
-- [x] `npm run test:e2e` → 3 tests passing, twice back-to-back (repeatable; now 9 tests)
+- [x] `npm test` → 8 files / 61 tests passing (now 11 files / 95 tests)
+- [x] `npm run test:e2e` → 3 tests passing, twice back-to-back (repeatable; now 9 browser tests)
 - [x] Fresh-machine documented startup (database up → migrate deploy → seed → dev)
 - [x] All §19 acceptance steps executed and recorded in `PROJECT_STATUS.md`
 - [x] Production build (`npm run build`) + `npm start` smoke test; e2e re-run against the production build

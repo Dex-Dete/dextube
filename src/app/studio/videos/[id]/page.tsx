@@ -43,12 +43,19 @@ export default async function StudioVideoEditPage({ params }: { params: Promise<
   }
 
   let reports: ReportedComment[] = [];
+  let reportTotal = 0;
+  let reportPage = 1;
+  let reportPageCount = 1;
   try {
-    reports = await listReportedComments(id, {
-      userId: user.id,
-      channelId: user.channel.id,
-      role: user.role,
-    });
+    const queue = await listReportedComments(
+      id,
+      { userId: user.id, channelId: user.channel.id, role: user.role },
+      { page: 1 },
+    );
+    reports = queue.items;
+    reportTotal = queue.total;
+    reportPage = queue.page;
+    reportPageCount = queue.pageCount;
   } catch {
     // A transient failure loading reports must not take down the editor.
     reports = [];
@@ -79,7 +86,13 @@ export default async function StudioVideoEditPage({ params }: { params: Promise<
       <VideoEditor video={editable} />
 
       <div className="mt-5">
-        <ReportedComments videoId={video.id} initialReports={reports} />
+        <ReportedComments
+          videoId={video.id}
+          initialReports={reports}
+          initialTotal={reportTotal}
+          initialPage={reportPage}
+          initialPageCount={reportPageCount}
+        />
       </div>
     </div>
   );

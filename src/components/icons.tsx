@@ -390,3 +390,10 @@ export const PlusIcon = (p: IconProps) => (
     <path d="M12 5.5v13M5.5 12h13" />
   </Icon>
 );
+
+export const RefreshIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+    <path d="M19.5 4.5V9H15" />
+  </Icon>
+);

@@ -11,6 +11,7 @@ import {
 import { mediaUrl } from "@/lib/media-url";
 import { formatCount, formatDate, formatWatchTime } from "@/lib/format";
 import { PlayIcon, StudioIcon } from "@/components/icons";
+import { EmptyState } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Analytics" };
 export const dynamic = "force-dynamic";
@@ -157,7 +158,12 @@ export default async function StudioAnalyticsPage({
           Top videos
         </h2>
         {overview.topVideos.length === 0 ? (
-          <p className="mt-3 text-sm text-subtle">No views in this range yet.</p>
+          <EmptyState
+            variant="inline"
+            className="mt-2"
+            title="No views in this range"
+            description="Videos with the most views in the selected range appear here once they start getting watched."
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">

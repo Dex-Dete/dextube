@@ -11,8 +11,17 @@ import { PrismaClient } from "@prisma/client";
 const globalForPrisma = globalThis as unknown as { __dextubePrisma?: PrismaClient };
 
 function createClient(): PrismaClient {
+  // Tests subscribe to `$on("query")` to assert statement counts (see the
+  // Studio analytics tests), which requires the `event` emit mode. Dev and
+  // production keep the plain level list so nothing is emitted without a
+  // listener.
+  const isTest = process.env.NODE_ENV === "test";
   const client = new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+    log: isTest
+      ? [{ emit: "event", level: "query" }, "warn", "error"]
+      : process.env.NODE_ENV === "development"
+        ? ["warn", "error"]
+        : ["error"],
   });
   return client;
 }

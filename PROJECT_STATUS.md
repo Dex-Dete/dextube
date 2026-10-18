@@ -410,8 +410,8 @@ Authenticated (session cookie): `/studio`, `/studio/videos`, `/studio/analytics`
 
 ## 9. Next action (resume here)
 
-**DEXTube 2.0 mission is in progress.** Phases 2–4 are complete and verified;
-phases 5–9 remain. See §11 for the phase-by-phase record.
+**DEXTube 2.0 mission is in progress.** Phases 2–5 are complete and verified;
+phases 6–9 remain. See §11 for the phase-by-phase record.
 
 ---
 
@@ -458,7 +458,7 @@ tested milestone. Phases 2–4 are done; the rest are pending.
 | 2 | Design system and per-surface layouts | ✅ done |
 | 3 | Professional video player | ✅ done |
 | 4 | Recommendations | ✅ done |
-| 5 | Studio (analytics, content table, bulk ops, moderation) | ⬜ pending |
+| 5 | Studio (analytics, content table, bulk ops, moderation) | ✅ done |
 | 6 | DEX Music (rights metadata, no fabricated catalogue) | ⬜ pending |
 | 7 | Measured performance, indexes, health/readiness | ⬜ pending |
 | 8 | Automated coverage (unit + integration + browser) | 🟡 partially done (player and recommender covered) |
@@ -535,12 +535,51 @@ dropped `category`, `tags` and `language`, so `interestTokens()` always returned
 `[]` for real feed items and the interest signal contributed nothing. The feed
 now carries those fields through to the ranker.
 
+### Phase 5 — Studio
+
+The creator dashboard no longer reads like a prototype.
+
+* **Analytics come from the aggregates the scheduler already maintains.** Days
+  before today are read from `VideoDailyStat` / `ChannelDailyStat`; only the
+  current, not-yet-finalised day is computed from raw events. The rollup writer
+  and the live slice share one pair of helpers, so the two can never disagree —
+  `tests/integration/studio.test.ts` asserts exactly that by comparing the
+  rollup read path with a direct raw query for the same range. A dashboard
+  render is now bounded by the length of the range instead of the number of
+  events inside it.
+* **The rollup write is set-based.** One `INSERT ... ON CONFLICT` per table
+  instead of one `upsert` per video, so aggregating a busy day is two statements
+  rather than an N+1 write storm. It stays idempotent: a late event is picked up
+  on the next run.
+* **The content table is a real table.** Sorting by published date, views or
+  title with a stable `id` tiebreak, and pagination whose page size is capped at
+  50 — the cap is enforced in the request schema, so `?limit=999` is rejected
+  with a validation error rather than silently widened.
+* **Bulk operations are safe.** `POST /api/studio/videos/bulk` takes at most 100
+  ids, authorises and mutates each id through the existing `videos.ts` service
+  functions, and reports success or failure per id rather than partially
+  applying silently. Cross-origin requests are refused, the action is rate
+  limited, and deletion reuses the soft-delete semantics (no rows are lost).
+* **A failed upload can be retried** through the existing job queue instead of
+  being a dead end.
+* **Moderation is paginated and owner-scoped**; a creator can only act on
+  comments belonging to their own videos (verified with a foreign video id,
+  which is refused).
+* Route-level loading skeletons and an error boundary cover every Studio page,
+  and the panels that can be empty use the shared `EmptyState`.
+
+The Studio work was verified by request-level checks against the running
+production build: 200s for every Studio page, real aggregate numbers from
+`/api/studio/analytics`, sorting and page-2 pagination from `/api/studio/videos`,
+a rejected oversized page, a bulk action that failed closed on a foreign id
+while succeeding on the owned one, and a 403 for a request with no `Origin`.
+
 ### Test evidence (current)
 
 | Suite | Result |
 | --- | --- |
 | `npm run lint` (ESLint CLI over the whole tree) | clean |
-| `npm test` (unit + integration) | 10 files, 89 tests passing |
+| `npm test` (unit + integration) | 11 files, 95 tests passing |
 | `npx playwright test` (real Chromium against the production build) | 9 tests passing, three consecutive clean runs |
 | `npm run build` | compiles; the client bundle is unchanged in size by the player work |
 

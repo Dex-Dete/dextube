@@ -8,7 +8,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { mediaUrl, streamUrl } from "@/lib/media-url";
 import { videoCategories } from "@/lib/validation";
 import { formatBytes, formatCount, formatDate, formatDuration } from "@/lib/format";
-import { PlayIcon, TrashIcon } from "@/components/icons";
+import { PlayIcon, RefreshIcon, TrashIcon } from "@/components/icons";
 
 export interface EditableVideo {
   id: string;
@@ -176,6 +176,22 @@ export function VideoEditor({ video: initialVideo }: { video: EditableVideo }) {
       router.refresh();
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof ApiClientError ? error.message : "Could not delete the video." });
+      setAction(null);
+    }
+  };
+
+  // Re-enqueues media processing through the same endpoint the list uses; the
+  // pipeline flips the status back to PROCESSING when the job runs.
+  const retry = async () => {
+    setAction("retry");
+    setMessage(null);
+    try {
+      await api.post(`/api/studio/videos/${video.id}/retry`);
+      setVideo((current) => ({ ...current, status: "PROCESSING", processingError: null }));
+      setMessage({ tone: "info", text: "Retry queued. This page will show the result once processing finishes." });
+      router.refresh();
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof ApiClientError ? error.message : "Could not retry processing." });
       setAction(null);
     }
   };
@@ -360,6 +376,16 @@ export function VideoEditor({ video: initialVideo }: { video: EditableVideo }) {
           )}
 
           <div className="mt-4 flex flex-wrap gap-2">
+            {video.status === "FAILED" && (
+              <button
+                type="button"
+                className="dt-btn dt-btn-secondary"
+                disabled={busy}
+                onClick={() => void retry()}
+              >
+                <RefreshIcon size={16} /> {action === "retry" ? "Retrying…" : "Retry processing"}
+              </button>
+            )}
             {video.visibility === "PRIVATE" ? (
               <button
                 type="button"

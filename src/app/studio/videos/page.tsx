@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/server/auth/session";
-import { listStudioVideos } from "@/server/services/videos";
+import { listStudioVideoPage, STUDIO_PAGE_SIZE_DEFAULT } from "@/server/services/studio-videos";
 import { StudioIcon, UploadIcon } from "@/components/icons";
 import { VideoListClient } from "./VideoListClient";
 
 export const metadata: Metadata = { title: "Your videos" };
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 20;
 const STATUSES = ["DRAFT", "PROCESSING", "READY", "FAILED"] as const;
 const VISIBILITIES = ["PRIVATE", "UNLISTED", "PUBLIC"] as const;
 
@@ -18,7 +17,7 @@ const VISIBILITIES = ["PRIVATE", "UNLISTED", "PUBLIC"] as const;
  *
  * The first page is fetched server-side (owner-scoped), so the list is useful
  * with JavaScript disabled; `VideoListClient` then adds search, filters,
- * pagination and the row actions on top.
+ * sorting, pagination, selection and the row/bulk actions on top.
  */
 export default async function StudioVideosPage({
   searchParams,
@@ -34,12 +33,12 @@ export default async function StudioVideosPage({
   const status = (STATUSES as readonly string[]).includes(sp.status ?? "") ? sp.status! : "ALL";
   const visibility = (VISIBILITIES as readonly string[]).includes(sp.visibility ?? "") ? sp.visibility! : "ALL";
 
-  const page = await listStudioVideos({
+  const page = await listStudioVideoPage({
     userId: user.id,
     query: q || undefined,
     status: status === "ALL" ? undefined : status,
     visibility: visibility === "ALL" ? undefined : visibility,
-    limit: PAGE_SIZE,
+    pageSize: STUDIO_PAGE_SIZE_DEFAULT,
   });
 
   return (
@@ -65,7 +64,9 @@ export default async function StudioVideosPage({
 
       <VideoListClient
         initialItems={page.items}
-        initialCursor={page.nextCursor}
+        initialTotal={page.total}
+        initialPage={page.page}
+        initialPageCount={page.pageCount}
         initialQuery={q}
         initialStatus={status}
         initialVisibility={visibility}

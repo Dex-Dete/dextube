@@ -89,6 +89,17 @@ internal interfaces may still change between releases.
   start, exclusions, weight parsing) and `tests/e2e/player.spec.ts` (real
   playback, the quality menu, speed, keyboard control, resume, and the
   single-rendition case).
+- Studio content management: sorting (published date, views, title, with a
+  stable tiebreak), enforced pagination (`STUDIO_PAGE_SIZE_MAX = 50`, rejected
+  at the request schema), bulk publish / unpublish / soft-delete via
+  `POST /api/studio/videos/bulk` (≤ 100 ids, authorised per id, partial results
+  reported), and `POST /api/studio/videos/[id]/retry` for a video whose
+  processing failed.
+- Route-level loading skeletons and error boundaries throughout `/studio`, and
+  `EmptyState` on the Studio panels that can be empty.
+- `tests/integration/studio.test.ts`, which asserts that the dashboard's rollup
+  read path and a direct raw-event query produce identical numbers for a range,
+  that soft-deleted comments are excluded, and that page sizes are capped.
 
 ### Changed
 
@@ -128,6 +139,18 @@ internal interfaces may still change between releases.
   ranking**: "Not interested" and "Don't recommend this channel" are stored
   separately from engagement data and are reversible inline, and "Reset
   recommendations" clears them without touching watch history.
+- **Studio analytics no longer rescans the event tables on every render.** Days
+  before today are served from the `VideoDailyStat` / `ChannelDailyStat` rollups
+  that the scheduler already maintains; only the current, not-yet-finalised day
+  is read from raw events. Both paths share one pair of helpers, so the rollup
+  and the live slice cannot drift apart, and a dashboard render is now bounded
+  by the length of the range instead of the number of events inside it.
+- **The daily rollup writes are set-based.** What was one `upsert` per video is
+  now a single `INSERT ... ON CONFLICT` per table, so aggregating a busy day is
+  two statements rather than an N+1 write storm. Aggregation stays idempotent,
+  so a late-arriving event is still picked up on the next run.
+- The Studio's top-video lookup uses one map instead of a `find` inside a loop
+  over the same list.
 - `PROJECT_STATUS.md` and `TODO.md` are tracked in the repository as the
   session-continuity record, with machine-specific details removed.
 
