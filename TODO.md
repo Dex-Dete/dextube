@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–8)
+Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 1–9 complete)
 
 ---
 
@@ -21,7 +21,7 @@ unit/integration tests and the browser suite before it is considered done.
 | 6 | DEX Music: rights metadata, no fabricated catalogue | `[x]` |
 | 7 | Measured performance, indexes, health/readiness, recovery docs | `[x]` |
 | 8 | Automated coverage for player / recsys / studio / music / authz / jobs | `[x]` |
-| 9 | Documentation and session continuity | `[~]` |
+| 9 | Documentation and session continuity | `[x]` |
 
 ### Phase 2 — design system
 - [x] Shared primitives in `src/components/ui/`; 13 duplicated empty states and 3 playlist cards removed
@@ -89,6 +89,16 @@ unit/integration tests and the browser suite before it is considered done.
 - [x] Jobs: scheduler coverage and the statement-count regressions in `performance.test.ts`
 - [x] Accessibility/responsive: 5 browser tests over the key pages at 375px and 1280px
 - [x] Six real defects found by that audit and fixed (CSS layer, sidebar `h2`, missing section headings, unlabelled avatar links, mobile overflow, skip-link focus)
+
+### Phase 9 — documentation
+- [x] `docs/player.md`: the player design, the manual-quality rule and honesty constraint, the resume window, the two hydration bugs, and the recorded `@vidstack/react` evaluation with live evidence and the conditions that would change the decision
+- [x] `docs/music.md`: the rights model, the four enforcement points, the synthetic-fixture policy, an operator checklist, and the limitations stated plainly
+- [x] `docs/performance.md`: measured latency, statement counts, bundle sizes, index inventory with plans, health vs readiness, recovery
+- [x] `README.md` feature table and document links updated (player, recommender feedback, Studio bulk ops, DEX Music)
+- [x] `docs/architecture.md`: audio path, single download-authorisation point, health/readiness split
+- [x] `PROJECT_STATUS.md`: session-4 log, completed mission status, and the honest remaining backlog
+- [x] `CHANGELOG.md`: added/changed/fixed entries for every phase, including each defect found by real tests
+
 
 
 

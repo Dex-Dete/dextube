@@ -406,12 +406,53 @@ Authenticated (session cookie): `/studio`, `/studio/videos`, `/studio/analytics`
   without a shell, so `NODE_OPTIONS=--conditions=react-server tsx …` could never
   run. Both `npm run db:seed` and Prisma's runner now call `scripts/seed.sh`.
 
+### Session 4 — 2026-10-18 (DEXTube 2.0, phases 1–9)
+* Audited the built platform phase by phase, then rebuilt it as nine tested
+  milestones, each committed and pushed on its own:
+  1. audit · 2. design system · 3. player · 4. recommender · 5. Studio ·
+  6. DEX Music · 7. measured performance · 8. coverage · 9. documentation.
+* Verified independently at every step rather than trusting a summary: `tsc`,
+  ESLint, the Vitest suite and the Playwright suite were run first-hand, and the
+  live production build was probed with real requests (status codes, JSON
+  bodies, range requests, a refused download, CSRF refusal, oversized-page
+  rejection, bulk-action partial failure).
+* Every phase produced at least one real defect that only a real browser or a
+  real database exposed. All were fixed and are recorded in `CHANGELOG.md`, and
+  each one now has a test: the seek bar pinned at `0:00`, a quality switch
+  re-counting a view, Tailwind's `hidden` being overridden by an unlayered
+  component class, a sidebar `h2` before every page's `h1`, unlabelled avatar
+  links, sideways scroll in the music list on a phone, and a skip link that
+  scrolled without moving focus.
+* Test data was written and then removed: fixtures live in an `itest_`
+  namespace and are cleaned up, and the database was left at 10 videos, 4 users
+  and 3 tracks with no leftover feedback rows. The pre-wipe restore point
+  remains at `storage/backups/dextube-20261018-103301`.
+* Commits: `e18c4cf` (phases 2–4), `f0c6390` (5), `754f11a` (6), `4809122` (7),
+  `e4f7bce` (8), plus this final documentation commit.
+
 ---
 
 ## 9. Next action (resume here)
 
-**DEXTube 2.0 mission is in progress.** Phases 2–8 are complete and verified;
-phase 9 (final documentation) remains. See §11 for the phase-by-phase record.
+**The DEXTube 2.0 mission is complete.** All nine phases are done, verified and
+pushed; the per-phase record with test evidence is in §11.
+
+Nothing is broken and nothing is half-built. The honest remaining backlog, in
+the order it should be tackled, is:
+
+1. **DEX Music has no upload form.** Tracks are seeded from synthetic fixtures.
+   Adding a real one means an audio upload path plus a rights form that refuses
+   to save without source, licence, attribution and territory.
+2. **HLS and adaptive switching are off** (`ENABLE_HLS=false`). Enabling them is
+   also the trigger to reconsider a player library — see `docs/player.md` §5.
+3. **The S3 storage adapter is still a stub**; `STORAGE_DRIVER=s3` refuses to
+   start rather than pretending.
+4. **SMTP is optional**, so verification and reset mail lands in a file outbox.
+5. **`loginctl enable-linger` still needs a password**, so the user service
+   stops at logout and does not start at boot (see §10).
+6. **Test data disclosure**: the seeded catalogue is development data, and the
+   recommender/Studio numbers quoted in this file come from it. Wiping or
+   re-seeding it is safe and reversible from the backup above.
 
 ---
 
@@ -448,7 +489,7 @@ phase 9 (final documentation) remains. See §11 for the phase-by-phase record.
 ## 11. DEXTube 2.0 (mission log)
 
 The mission is an audit-then-rebuild pass over nine areas, each landing as a
-tested milestone. Phases 2–8 are done; phase 9 is documentation.
+tested milestone. All nine phases are done; the mission is complete.
 
 ### Status
 
@@ -462,7 +503,7 @@ tested milestone. Phases 2–8 are done; phase 9 is documentation.
 | 6 | DEX Music (rights metadata, no fabricated catalogue) | ✅ done |
 | 7 | Measured performance, indexes, health/readiness | ✅ done |
 | 8 | Automated coverage (unit + integration + browser) | ✅ done |
-| 9 | Documentation and session continuity | 🟡 this file, `TODO.md`, `CHANGELOG.md` |
+| 9 | Documentation and session continuity | ✅ done |
 
 ### Phase 3 — the player
 
@@ -674,6 +715,29 @@ component class (so desktop-only header buttons showed on phones), a sidebar `h2
 before every page's `h1`, missing section headings above the home and trending
 grids, unlabelled avatar links on the watch page and in comments, sideways scroll
 in the music list on a phone, and a skip link that scrolled without moving focus.
+
+### Phase 9 — documentation
+
+* `docs/player.md` — what the player is, why the media element stays native, the
+  manual-quality rule and the resume window, the two hydration bugs, the
+  deliberately absent features, and the **recorded evaluation of
+  `@vidstack/react`** with live evidence
+  (`@vidstack/react@1.15.7`, MIT, `react ^18 || ^19`, 3,312,029 bytes unpacked)
+  and the conditions that would reverse the decision.
+* `docs/music.md` — the DEX Music rights model, the four enforcement points, the
+  synthetic-fixture policy, a checklist for an operator adding real audio, and
+  the limitations stated plainly (no upload form, no transcoding, no DRM, and
+  the difference between refusing a download and being unable to prevent a
+  capture).
+* `docs/performance.md` — measured latency, statement counts, bundle and payload
+  sizes, the index inventory with plans, health vs readiness, and recovery.
+* `README.md` — feature table brought up to date (custom player, recommender
+  feedback, Studio bulk operations, DEX Music) with links to the new documents.
+* `docs/architecture.md` — the audio path and the health/readiness split added,
+  with the module map updated to name `services/music.ts` as the single
+  download-authorisation point.
+* `CHANGELOG.md`, `TODO.md` and this file carry the phase-by-phase record, the
+  weights, and the test evidence below.
 
 ### Test evidence (current)
 

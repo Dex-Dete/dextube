@@ -110,6 +110,13 @@ internal interfaces may still change between releases.
   reset brings both back, repeated feedback stays idempotent, a viewer with no
   signals is reported as `trending-recent` rather than as "personalised", and
   paging through the feed neither repeats nor drops a video.
+- `docs/player.md`, which documents the player and records the evaluation of
+  `@vidstack/react` (MIT, `react ^18 || ^19`, 3,312,029 bytes unpacked) that led
+  to a small custom control layer instead, including what would reverse it.
+- `docs/music.md`, which documents the DEX Music rights model, the four places
+  the rights are enforced, the synthetic-fixture policy, and the honest
+  limitations.
+- `GET /api/ready` and `docs/performance.md` (see the performance entry below).
 - `tests/e2e/accessibility.spec.ts`, which audits the key pages at 375px and
   1280px for accessible names, `alt` attributes, one `h1` per page, heading
   levels that never skip, horizontal overflow, reduced motion, and a keyboard

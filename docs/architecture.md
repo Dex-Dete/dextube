@@ -25,7 +25,7 @@ in a dedicated worker process. There is no second backend service to operate.
 | `auth/password.ts` | Argon2id hashing and verification, password policy helpers. |
 | `auth/session.ts` | Session creation/verification/revocation, cookies, `sessionEpoch`. |
 | `auth/rate-limit.ts` | Persistent fixed-window rate limiting + limit presets. |
-| `services/**` | Accounts, channels, videos, uploads, media-process, comments, notifications, playlists, analytics, search, navigation. Every ownership/privacy rule lives here. |
+| `services/**` | Accounts, channels, videos, uploads, media-process, comments, notifications, playlists, analytics, search, navigation, studio content management, music. Every ownership/privacy rule lives here — including `music.ts`, which is the only place a track download is authorised. |
 | `storage/index.ts` | `MediaStorage` interface + local filesystem driver (S3 reserved). |
 | `media/exec.ts` | Child-process runner (argv-only, no shell, timeouts, bounded output). |
 | `media/ffmpeg.ts` | High-level FFprobe/probe, thumbnail, poster, remux, transcode, HLS wrappers. |
@@ -310,6 +310,32 @@ request time. It also refuses to start in production with a placeholder
 `SESSION_SECRET` or `DATABASE_URL`. Standalone Node processes (worker, seed,
 scripts) load `.env` through the minimal `src/lib/load-env.ts` parser; the Next.js
 web app loads `.env` itself.
+
+---
+
+## 9. Audio (DEX Music) and operational endpoints
+
+**DEX Music** stores audio as `Track` rows owned by a channel, with the terms of
+use in a 1:1 `TrackRights` row (`source`, `license`, `attribution`, `territory`,
+`downloadAllowed`). Audio bytes are served by the **same** media route as video,
+so there is one place where bytes leave the process: a `?download=1` request for
+a `tracks/…` key is authorised by `services/music.ts` before the file is opened,
+which means a download cannot be obtained by asking the route directly. Streaming
+and downloading are treated as separate rights. The library lists PUBLIC tracks
+only and renders an honest empty state rather than a bundled catalogue; the full
+policy is in [`docs/music.md`](./music.md).
+
+**Health and readiness are separate** for a reason. `GET /api/health` probes
+everything, including spawning FFmpeg and FFprobe to report the negotiated
+encoder — hundreds of milliseconds, right for alerting and wrong for a frequent
+probe. `GET /api/ready` answers only "may this instance take traffic?" with a
+database round trip and one storage write/read/delete, and returns booleans only.
+Both are unauthenticated, so neither discloses host paths; the measured cost of
+each is in [`docs/performance.md`](./performance.md) §6.
+
+The player is documented separately in [`docs/player.md`](./player.md),
+including the evaluation that led to a small custom control layer instead of a
+third-party player library.
 
 See [`docs/database.md`](./database.md) for the data model,
 [`docs/deployment.md`](./deployment.md) for production, and

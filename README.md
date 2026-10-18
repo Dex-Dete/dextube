@@ -26,15 +26,16 @@ Licensed under **AGPL-3.0-or-later** — see [`LICENSE`](./LICENSE).
 | **Accounts & auth** | Email + password registration, Argon2id password hashing, opaque hashed session cookies, email verification, single-use password reset, and global session invalidation via a per-user session epoch. |
 | **Channels** | One channel per user, collision-free handle allocation, channel profiles (name, description, avatar, banner), edit, and layout metadata. |
 | **Uploads & media pipeline** | Chunked, resumable uploads (5 MiB chunks with explicit byte offsets) that feed a queued FFmpeg pipeline: FFprobe metadata → thumbnail + poster → remux or a bounded multi-resolution H.264 transcode ladder → `READY`. |
-| **Playback** | HTTP **range-request** progressive MP4 playback (seek, resume) with per-request authorisation; **HLS packaging is optional** (`ENABLE_HLS`). |
+| **Playback** | HTTP **range-request** progressive MP4 playback (seek, resume) with per-request authorisation. A **custom accessible player** (native `<video>` + its own keyboard-driven control layer) with speed 0.25–2×, captions, picture-in-picture and a **manual** quality menu built from the video's real renditions — never labelled adaptive, because no ABR engine runs. **HLS packaging is optional** (`ENABLE_HLS`). See [`docs/player.md`](./docs/player.md). |
 | **Comments** | Comments and one level of replies, likes, `top`/`newest` sorting, pagination, and creator/moderator moderation (pin, hide). |
 | **Subscriptions** | Subscribe/unsubscribe with per-subscription notification preference and a subscriptions feed. |
 | **Notifications** | In-app notifications (new video, replies, likes, new subscribers) with read/unread state, pagination, and duplicate suppression. |
 | **Libraries** | Channel-owned playlists with ordering and visibility, plus the system **Watch later** and **Liked videos** playlists; watch history with continue-watching and watch progress. |
 | **Search** | Video, channel, and public-playlist search with type/duration/sort filters plus a lightweight autocomplete endpoint. |
 | **Shorts** | 9:16 vertical Shorts detection on upload, a dedicated Shorts feed, and vertical navigation. |
-| **Recommendations** | A **transparent weighted-heuristic** home feed (`strategy: trending-recent` / `personalized`). No machine-learning claims are made; every signal and weight is documented and configurable. |
-| **DEXTube Studio** | Creator analytics derived from real recorded events (views, watch time, likes, comments, subscribers) with daily rollups, plus video management/edit/publish APIs. |
+| **Recommendations** | A **transparent weighted-heuristic** home feed (`strategy: trending-recent` / `personalized`). No machine-learning claims are made; every signal and weight is documented and configurable. Viewers can say **"Not interested" / "Don't recommend this channel"** and **reset** their recommendations, and history-derived signals are only read when watch history is enabled. |
+| **DEXTube Studio** | Creator analytics derived from real recorded events (views, watch time, likes, comments, subscribers) with daily rollups, a sortable paginated content table, bulk publish/unpublish/delete, retry for failed processing, and paginated owner-scoped moderation. |
+| **DEX Music** | A rights-first audio surface: each track stores its source, licence, required attribution, territory and download permission, and a download is only served when that permission exists. Ships **no bundled catalogue** — the library starts empty rather than redistributing music without a licence. See [`docs/music.md`](./docs/music.md). |
 
 ---
 
@@ -227,9 +228,12 @@ development default) or in a dedicated worker (`JOB_RUNNER=external` +
 `npm run worker`, the production recommendation).
 
 See [`docs/architecture.md`](./docs/architecture.md) for the request lifecycle,
-the media pipeline, the job-queue design, and the recommender, and
+the media pipeline, the job-queue design, and the recommender,
 [`docs/performance.md`](./docs/performance.md) for measured latency, statement
-counts, bundle sizes and the query plans behind the hot paths.
+counts, bundle sizes and the query plans behind the hot paths,
+[`docs/player.md`](./docs/player.md) for the player design and the recorded
+evaluation of a third-party player library, and
+[`docs/music.md`](./docs/music.md) for the DEX Music rights model.
 
 ---
 
