@@ -80,7 +80,7 @@ const PROGRESS_INTERVAL_MS = 10_000;
 /** A view is recorded only after this much real playback. */
 const VIEW_AFTER_SECONDS = 3;
 /** Playback speeds, as specified for the product. */
-const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4] as const;
 /** How long the control bar stays up after the last interaction. */
 const HIDE_DELAY_MS = 2600;
 /** Minimum position change worth a write to the database. */
@@ -96,6 +96,32 @@ const AUTOPLAY_NEXT_PREF_KEY = "dextube-autoplay-next";
 const AUTOPLAY_PLAY_PREF_KEY = "dextube-player-autoplay";
 /** Preference: the time readout counts down instead of up (default off). */
 const TIME_REMAINING_PREF_KEY = "dextube-player-time-remaining";
+const PLAYBACK_SPEED_PREF_KEY = "dextube-player-speed";
+
+function playbackSpeedSnapshot(): number {
+  try {
+    const stored = Number(window.localStorage.getItem(PLAYBACK_SPEED_PREF_KEY));
+    return [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4].includes(stored) ? stored : 1;
+  } catch {
+    return 1;
+  }
+}
+
+const playbackSpeedListeners = new Set<() => void>();
+const playbackSpeedPreference = {
+  subscribe(listener: () => void) {
+    playbackSpeedListeners.add(listener);
+    return () => playbackSpeedListeners.delete(listener);
+  },
+  write(value: number) {
+    try {
+      window.localStorage.setItem(PLAYBACK_SPEED_PREF_KEY, String(value));
+    } catch {
+      /* Private mode — the preference simply does not persist. */
+    }
+    for (const listener of playbackSpeedListeners) listener();
+  },
+};
 
 /**
  * A range of already-downloaded media, in seconds. Derived from the media
@@ -248,6 +274,7 @@ export function VideoPlayer({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | null>(null);
+  const preferredSpeed = useSyncExternalStore(playbackSpeedPreference.subscribe, playbackSpeedSnapshot, () => 1);
 
   const [activeSrc, setActiveSrc] = useState<string | null>(src);
   // The first stored rendition is the one playing, so that is the honest
@@ -260,7 +287,7 @@ export function VideoPlayer({
   const [ended, setEnded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resumedFrom, setResumedFrom] = useState<number | null>(null);
-  const [speed, setSpeed] = useState(1);
+  const speed = preferredSpeed;
   const [menu, setMenu] = useState<MenuView>("none");
   const [controlsVisible, setControlsVisible] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -754,7 +781,7 @@ export function VideoPlayer({
   }, []);
 
   const setSpeedValue = useCallback((value: number) => {
-    setSpeed(value);
+    playbackSpeedPreference.write(value);
     if (videoRef.current) videoRef.current.playbackRate = value;
   }, []);
 

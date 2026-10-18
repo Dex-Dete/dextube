@@ -30,6 +30,10 @@ The administrator overview now also reports exact non-deleted user/video
 counts, ready-video count, recorded media-asset bytes, import quota usage, and
 pending/running/failed DB-backed jobs. It contains no placeholder metrics.
 
+The player now exposes genuine 0.25× through 4× playback speeds and persists
+the selected speed per browser. The 4× choice was verified by reading the real
+HTMLMediaElement `playbackRate` after selection and after reload.
+
 ---
 
 ## 1. What DEXTube is

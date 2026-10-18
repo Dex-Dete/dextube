@@ -186,9 +186,18 @@ test.describe("player extras", () => {
 
     await page.getByRole("menuitem", { name: /Speed/ }).click();
     const speeds = (await page.getByRole("menuitemradio").allInnerTexts()).map((text) => text.trim());
-    expect(speeds).toHaveLength(8);
+    expect(speeds).toHaveLength(11);
     expect(speeds[0]).toBe("0.25×");
     expect(speeds.some((label) => label.startsWith("2×"))).toBe(true);
+    expect(speeds).toContain("4×");
+
+    // Selecting 4× changes the real media element, not just the menu label.
+    await page.getByRole("menuitemradio", { name: "4×", exact: true }).click();
+    await expect.poll(async () => page.locator("video").first().evaluate((element) => (element as HTMLVideoElement).playbackRate)).toBe(4);
+    await page.reload();
+    await page.getByRole("button", { name: SETTINGS }).click();
+    await page.getByRole("menuitem", { name: /Speed/ }).click();
+    await expect(page.getByRole("menuitemradio", { name: "4×", exact: true })).toHaveAttribute("aria-checked", "true");
   });
 
   test("remembers the autoplay preference and never starts with sound", async ({ page }) => {
