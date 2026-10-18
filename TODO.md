@@ -46,7 +46,7 @@ unit/integration tests and the browser suite before it is considered done.
 - [x] Native `controls` removed; custom accessible control layer over `<video>`
 - [x] Quality menu from real `PROGRESSIVE` renditions; hidden below two; manual switching preserves the playhead; never labelled "Auto"
 - [x] `scripts/make-renditions.ts` generates genuine scaled renditions and records them as assets
-- [x] Speed 0.25×–2× (menu and `,`/`.`), captions when a `CAPTION` asset exists, PiP, fullscreen + orientation lock
+- [x] Speed 0.25×–4× (menu and `,`/`.`), persisted preference, captions when a `CAPTION` asset exists, PiP, fullscreen + orientation lock
 - [x] Seek bar with buffered range and time tooltip; volume; auto-hide; keyboard reference; autoplay-next
 - [x] Resume with "Start over"; throttled progress writes flushed with `keepalive` on pause and page hide
 - [x] Private/unlisted media authorisation unchanged and re-verified
