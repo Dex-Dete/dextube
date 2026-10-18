@@ -283,11 +283,19 @@ the output off-host.
 
 ## 8. Health and monitoring
 
+- `GET /api/ready` answers the load-balancer question — "may I send this instance
+  traffic?" — with a database round trip and one storage write/read/delete. It
+  returns `200` when both succeed and `503` otherwise, and reports booleans only.
+  It does not spawn FFmpeg, so it is the right probe for a frequent check.
 - `GET /api/health` returns `200` when the database, storage, FFmpeg, FFprobe,
-  and a usable H.264 encoder are all available, and `503` otherwise. It exposes
-  no secrets — only booleans, tool versions, feature flags, and the host's own
-  advertised URL. Add `?details=1` (non-production only) for a job breakdown.
-- Use it as a container/systemd health check.
+  and a usable H.264 encoder are all available, and `503` otherwise. It is the
+  deeper check (hundreds of milliseconds, because it probes the media tools) and
+  the one to alert on when a dependency breaks. It exposes no secrets and no
+  host paths: booleans, tool versions and feature flags. The storage root and the
+  advertised URL are only included with `?details=1` outside production.
+- Both send `cache-control: no-store`; their measured latency and the reasoning
+  behind the split are in `docs/performance.md` §6.
+- Use `/api/ready` as the container/systemd health check.
 - App logs are structured JSON on stdout; `scripts/start.sh` also writes
   `storage/logs/app.log` and `storage/logs/worker.log`.
 

@@ -100,6 +100,15 @@ internal interfaces may still change between releases.
 - `tests/integration/studio.test.ts`, which asserts that the dashboard's rollup
   read path and a direct raw-event query produce identical numbers for a range,
   that soft-deleted comments are excluded, and that page sizes are capped.
+- `GET /api/ready`, a cheap readiness probe (database round trip plus one storage
+  write/read/delete, booleans only) for load balancers and orchestrators, kept
+  separate from `/api/health` because health spawns FFmpeg and FFprobe.
+- `docs/performance.md`: measured route latency, statement counts, bundle and
+  payload sizes, the index inventory with query plans, and the recovery story.
+- `tests/integration/performance.test.ts`, which counts real SQL statements
+  through Prisma's query event and asserts that the rollup rebuild is one
+  `INSERT` per table, that the Studio dashboard costs the same however many
+  videos a channel has, and that feed pages stay bounded.
 - **DEX Music** — a rights-first audio surface. A playable `Track` (owned by a
   channel, exactly like a video) plus a separate 1:1 `TrackRights` row recording
   `source`, `license`, `attribution`, `territory` and `downloadAllowed`, applied
@@ -175,6 +184,12 @@ internal interfaces may still change between releases.
   so a late-arriving event is still picked up on the next run.
 - The Studio's top-video lookup uses one map instead of a `find` inside a loop
   over the same list.
+- **`/api/health` no longer discloses the host to anonymous callers.** It is
+  unauthenticated, so it now reports the storage driver but not the absolute
+  storage root, and omits the advertised URL; both are available with
+  `?details=1` outside production. Readiness moved to its own `GET /api/ready`,
+  which answers the "may I send traffic here?" question in about 9 ms instead of
+  spawning the media tools.
 - `PROJECT_STATUS.md` and `TODO.md` are tracked in the repository as the
   session-continuity record, with machine-specific details removed.
 

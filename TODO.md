@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–6)
+Last updated: 2026-10-18 (session 4 — DEXTube 2.0, phases 2–7)
 
 ---
 
@@ -19,7 +19,7 @@ unit/integration tests and the browser suite before it is considered done.
 | 4 | Recommendations: versioned weights, diversity, feedback | `[x]` |
 | 5 | Studio: real aggregates, paginated table, bulk ops, moderation | `[x]` |
 | 6 | DEX Music: rights metadata, no fabricated catalogue | `[x]` |
-| 7 | Measured performance, indexes, health/readiness, recovery docs | `[ ]` |
+| 7 | Measured performance, indexes, health/readiness, recovery docs | `[x]` |
 | 8 | Automated coverage for player / recsys / studio / music / authz / jobs | `[~]` |
 | 9 | Documentation and session continuity | `[~]` |
 
@@ -71,6 +71,15 @@ unit/integration tests and the browser suite before it is considered done.
 - [x] `scripts/make-test-audio.ts` synthesises original `sine`/`anoisesrc` fixtures with FFmpeg (no third-party audio); the seed is additive and idempotent
 - [x] `tests/unit/music-download.test.ts` (decision logic), `tests/integration/music.test.ts` (real DB enforcement), `tests/e2e/music.spec.ts` (playback, persistence, no download control)
 - [x] No fabricated catalogue: three synthetic tones with honest metadata, and no audio upload form pretending to exist
+
+### Phase 7 — performance
+- [x] Measured p50/p95 latency for the hot routes in the production build; documented with reproduction commands in `docs/performance.md`
+- [x] `GET /api/ready` (9 ms, booleans only) split from the deep `/api/health` (320 ms, spawns FFmpeg)
+- [x] `/api/health` no longer discloses the storage root or the advertised URL to anonymous callers
+- [x] `tests/integration/performance.test.ts` asserts real statement counts: one `INSERT` per table for a 3-video rollup, dashboard cost independent of video count, bounded feed pages
+- [x] Index inventory + query plans documented (including the honest note that a 10-row table is correctly sequentially scanned)
+- [x] Recovery documented: backup/restore, retryable failed media, self-healing rollups
+
 
 
 ---
@@ -162,7 +171,7 @@ unit/integration tests and the browser suite before it is considered done.
 ## Phase 9 — Acceptance run
 - [x] `npx tsc --noEmit` clean
 - [x] `npm run lint` → 0 problems
-- [x] `npm test` → 8 files / 61 tests passing (now 13 files / 105 tests)
+- [x] `npm test` → 8 files / 61 tests passing (now 14 files / 109 tests)
 - [x] `npm run test:e2e` → 3 tests passing, twice back-to-back (repeatable; now 11 browser tests)
 - [x] Fresh-machine documented startup (database up → migrate deploy → seed → dev)
 - [x] All §19 acceptance steps executed and recorded in `PROJECT_STATUS.md`

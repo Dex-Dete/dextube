@@ -410,8 +410,8 @@ Authenticated (session cookie): `/studio`, `/studio/videos`, `/studio/analytics`
 
 ## 9. Next action (resume here)
 
-**DEXTube 2.0 mission is in progress.** Phases 2–6 are complete and verified;
-phases 7–9 remain. See §11 for the phase-by-phase record.
+**DEXTube 2.0 mission is in progress.** Phases 2–7 are complete and verified;
+phases 8–9 remain. See §11 for the phase-by-phase record.
 
 ---
 
@@ -448,7 +448,7 @@ phases 7–9 remain. See §11 for the phase-by-phase record.
 ## 11. DEXTube 2.0 (mission log)
 
 The mission is an audit-then-rebuild pass over nine areas, each landing as a
-tested milestone. Phases 2–6 are done; the rest are pending.
+tested milestone. Phases 2–7 are done; the rest are pending.
 
 ### Status
 
@@ -460,7 +460,7 @@ tested milestone. Phases 2–6 are done; the rest are pending.
 | 4 | Recommendations | ✅ done |
 | 5 | Studio (analytics, content table, bulk ops, moderation) | ✅ done |
 | 6 | DEX Music (rights metadata, no fabricated catalogue) | ✅ done |
-| 7 | Measured performance, indexes, health/readiness | ⬜ pending |
+| 7 | Measured performance, indexes, health/readiness | ✅ done |
 | 8 | Automated coverage (unit + integration + browser) | 🟡 partially done (player and recommender covered) |
 | 9 | Documentation and session continuity | 🟡 this file, `TODO.md`, `CHANGELOG.md` |
 
@@ -624,6 +624,37 @@ and a `Range` request returned `206` with `Content-Range`; `?download=1` returne
 the streaming-only one; the private track was a `404`. Per the task constraints,
 `npm run build` was **not** run and the port-3000 service was left untouched; the
 HTTP checks ran against a throwaway `next dev` on port 3100.
+
+### Phase 7 — measured performance
+
+No claim here is an estimate; every number came from the production build and the
+commands to reproduce them are in `docs/performance.md`.
+
+* **Latency** (20 samples, warm): feed API p50 7 ms, search 10 ms, `/music` 15 ms,
+  watch page 33 ms, Studio analytics 41 ms. The slowest endpoint is `/api/health`
+  at 320 ms, and that is by design — it spawns FFmpeg and FFprobe to report the
+  resolved encoder.
+* **Health and readiness are now separate.** `GET /api/ready` answers the
+  load-balancer question with a database round trip and one storage
+  write/read/delete: p50 9 ms, booleans only. `GET /api/health` stays the deep
+  dependency check. Because health is unauthenticated it no longer leaks the
+  absolute storage path or the advertised URL; those need `?details=1` outside
+  production.
+* **The anti-N+1 claims are asserted on real SQL**, not asserted in prose.
+  `tests/integration/performance.test.ts` reads Prisma's query event and requires
+  that a three-video rollup rebuild issues exactly **one** `INSERT` per table,
+  that `getStudioOverview` costs the same number of statements for a channel with
+  one video and with six, and that feed pages stay bounded and clamp an oversized
+  request.
+* **Indexes were verified, not assumed.** The index inventory and the two plans
+  are documented, including the honest note that a ten-row development catalogue
+  is correctly served by a sequential scan, and that disabling sequential scans
+  shows the partial composite index the planner would use at scale. No
+  speculative index was added; the one redundant index the audit found had
+  already been dropped by the `recsys_feedback` migration, with the reason
+  written into the migration.
+* **Recovery is documented**: backup/restore, retryable failed media, and
+  self-healing daily rollups (see `docs/performance.md` §7).
 
 ### Test evidence (current)
 

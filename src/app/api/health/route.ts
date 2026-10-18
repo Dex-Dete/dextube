@@ -2,11 +2,14 @@
  * Health endpoint.
  *
  * Used by `scripts/start.sh`, Docker healthchecks and monitoring. Reports the
- * status of every external dependency DEXTube needs, plus the resolved public
- * URL so an operator can confirm which instance answered.
+ * status of every external dependency DEXTube needs.
  *
- * It is intentionally unauthenticated but exposes no secrets: only booleans,
- * tool versions and the host's own advertised URL.
+ * It is intentionally unauthenticated, so it exposes no secrets and no host
+ * paths: booleans, tool versions, the storage driver and the resolved encoder.
+ * The absolute storage root and the advertised URL are only included when
+ * `?details=1` is requested outside production, where a developer wants them.
+ * For a cheap "may I send traffic here?" probe that does not spawn FFmpeg, use
+ * `/api/ready` instead.
  */
 import { NextResponse } from "next/server";
 import { checkDatabase } from "@/lib/db";
@@ -23,7 +26,7 @@ export async function GET(request: Request) {
   const started = Date.now();
   const config = getConfig();
   const url = new URL(request.url);
-  const wantsDetails = url.searchParams.get("details") === "1";
+  const wantsDetails = url.searchParams.get("details") === "1" && config.nodeEnv !== "production";
 
   // Health checks run on a timer in every deployment, so this is a good place
   // to make sure inline-mode job processing is alive and self-healing.
@@ -46,12 +49,13 @@ export async function GET(request: Request) {
     status: ok ? "ok" : "degraded",
     version: process.env.npm_package_version ?? "0.1.0",
     environment: config.nodeEnv,
-    appUrl: config.appUrl,
     uptimeSeconds: Math.round(process.uptime()),
     responseTimeMs: Date.now() - started,
     checks: {
       database: { ok: database.ok, latencyMs: database.latencyMs, ...(database.error ? { error: database.error } : {}) },
-      storage,
+      // `checkStorage` reports the resolved root for the operator's benefit;
+      // strip it unless details were explicitly requested off production.
+      storage: wantsDetails ? storage : { ok: storage.ok, driver: storage.driver },
       ffmpeg: media.ffmpeg,
       ffprobe: media.ffprobe,
       h264Encoder: media.encoder,
@@ -66,7 +70,11 @@ export async function GET(request: Request) {
     },
   };
 
-  if (wantsDetails && config.nodeEnv !== "production") {
+  if (wantsDetails) {
+    body.appUrl = config.appUrl;
+  }
+
+  if (wantsDetails) {
     body.jobs = await jobStats();
   }
 

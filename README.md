@@ -227,7 +227,9 @@ development default) or in a dedicated worker (`JOB_RUNNER=external` +
 `npm run worker`, the production recommendation).
 
 See [`docs/architecture.md`](./docs/architecture.md) for the request lifecycle,
-the media pipeline, the job-queue design, and the recommender.
+the media pipeline, the job-queue design, and the recommender, and
+[`docs/performance.md`](./docs/performance.md) for measured latency, statement
+counts, bundle sizes and the query plans behind the hot paths.
 
 ---
 
